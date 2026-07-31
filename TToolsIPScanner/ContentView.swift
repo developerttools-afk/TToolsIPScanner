@@ -8,14 +8,26 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var scanner = NetworkScanner()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            // iPhone Layout
+            MobileLayout(scanner: scanner)
+        } else {
+            // iPad Layout
+            NavigationStack {
+                MobileLayout(scanner: scanner)
+            }
         }
-        .padding()
+        #else
+        // macOS Layout
+        NavigationStack {
+            DesktopLayout(scanner: scanner)
+        }
+        #endif
     }
 }
 

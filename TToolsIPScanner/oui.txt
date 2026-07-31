@@ -1,0 +1,388 @@
+# Common Network Device Manufacturers
+000C29	VMware
+001C42	Parallels
+080027	Oracle VirtualBox
+525400	QEMU
+00163E	Xen Project
+00155D	Microsoft Hyper-V
+000AE4	Wistron Corporation
+000C29	VMware
+001A11	Google
+001422	Dell
+002248	Microsoft Corporation
+002590	Super Micro Computer
+
+# Network Hardware
+001018	Broadcom
+000B86	Aruba Networks
+00904C	Epigram
+001321	Hewlett Packard
+001635	Hewlett Packard
+001708	Hewlett Packard
+001883	Hewlett Packard
+002481	Hewlett Packard
+002538	Hewlett Packard
+002655	Hewlett Packard
+0026B9	Dell Inc
+C81F66	Dell Inc
+001422	Dell Inc
+18A905	Hewlett Packard
+1CC1DE	Hewlett Packard
+24BE05	Hewlett Packard
+38EA4F	Hewlett Packard
+D48564	Hewlett Packard
+D89403	Hewlett Packard
+D89D67	Hewlett Packard
+E83935	Hewlett Packard
+00000C	Cisco Systems
+001011	Cisco Systems
+0050F2	Microsoft
+CC2D8C	LG Electronics
+001CF0	D-Link Corporation
+28107B	D-Link Corporation
+84C9B2	D-Link Corporation
+A0AB1B	D-Link Corporation
+C4A81D	D-Link Corporation
+E4F14C	Private
+E8F2E2	LG Electronics
+F0B4D2	LG Electronics
+F8A9D0	LG Electronics
+
+# IoT and Smart Home
+001788	Philips Lighting
+B827EB	Raspberry Pi
+94BBAE	ASKEY Computer
+84CCA8	Espressif
+18FE34	Espressif
+24B2DE	Espressif
+2462AB	Espressif
+24D7EB	Espressif
+3C6105	Espressif
+3C71BF	Espressif
+40F520	Espressif
+4C11AE	Espressif
+5CCF7F	Espressif
+60019498	Espressif
+607EDD	Espressif
+68C63A	Espressif
+84F3EB	Espressif
+8C4B14	Espressif
+9C9C1F	Espressif
+A020A6	Espressif
+A4CF12	Espressif
+AC67B2	Espressif
+B4E62D	Espressif
+B8F009	Espressif
+C44F33	Espressif
+C8C9A3	Espressif
+D8A01D	Espressif
+DC4F22	Espressif
+EC94CB	Espressif
+F4CFA2	Espressif
+
+# Mobile and Consumer Electronics
+000393	Apple
+000502	Apple
+000A27	Apple
+000A95	Apple
+0026BB	Apple
+003065	Apple
+001B63	Apple
+002241	Apple
+E4CE8F	Apple
+B8E856	Apple
+88C255	Texas Instruments
+001408	Zyxel Communications
+001EA7	Samsung Electronics
+0023D6	Samsung Electronics
+002491	Samsung Electronics
+002519	Samsung Electronics
+0025E5	LG Electronics
+08ECA9	Samsung Electronics
+08FD0E	Samsung Electronics
+10D38A	Samsung Electronics
+14568E	Samsung Electronics
+14B484	Samsung Electronics
+1816C9	Samsung Electronics
+184617	Samsung Electronics
+188331	Samsung Electronics
+1C5A3E	Samsung Electronics
+1C62B8	Samsung Electronics
+1C66AA	Samsung Electronics
+2013E0	Samsung Electronics
+2C4053	Samsung Electronics
+2C4401	Samsung Electronics
+34145F	Samsung Electronics
+380195	Samsung Electronics
+380A94	Samsung Electronics
+38D40B	Samsung Electronics
+38ECE4	Samsung Electronics
+3C0518	Samsung Electronics
+3C5A37	Samsung Electronics
+3C6200	Samsung Electronics
+3C8BFE	Samsung Electronics
+4C3C16	Samsung Electronics
+4CA56D	Samsung Electronics
+4CBCA5	Samsung Electronics
+5001BB	Samsung Electronics
+503275	Samsung Electronics
+503DA1	Samsung Electronics
+54219D	Samsung Electronics
+54F201	Samsung Electronics
+548F89	Samsung Electronics
+54BD79	Samsung Electronics
+54FA3E	Samsung Electronics
+5492BE	Samsung Electronics
+5C497D	Samsung Electronics
+5C5181	Samsung Electronics
+5C9960	Samsung Electronics
+5CE8EB	Samsung Electronics
+5CF6DC	Samsung Electronics
+60684E	Samsung Electronics
+60A10A	Samsung Electronics
+60AF6D	Samsung Electronics
+60C5AD	Samsung Electronics
+60D0A9	Samsung Electronics
+64B310	Samsung Electronics
+64B853	Samsung Electronics
+68485B	Samsung Electronics
+685B35	Samsung Electronics
+68BF95	Samsung Electronics
+68E7C2	Samsung Electronics
+6C2F2C	Samsung Electronics
+6C8336	Samsung Electronics
+6CB7F4	Samsung Electronics
+70288B	Samsung Electronics
+702AD5	Samsung Electronics
+70CF4C	Samsung Electronics
+70F927	Samsung Electronics
+70FD46	Samsung Electronics
+78471D	Samsung Electronics
+78521A	Samsung Electronics
+78595E	Samsung Electronics
+789ED0	Samsung Electronics
+78A873	Samsung Electronics
+78ABBB	Samsung Electronics
+78C3E9	Samsung Electronics
+78F7BE	Samsung Electronics
+7C0BC6	Samsung Electronics
+7C2302	Samsung Electronics
+7C2EDD	Samsung Electronics
+7C38AD	Samsung Electronics
+7C6456	Samsung Electronics
+7C787E	Samsung Electronics
+7C8956	Samsung Electronics
+7C8BB5	Samsung Electronics
+7C9122	Samsung Electronics
+7CF854	Samsung Electronics
+7CF90E	Samsung Electronics
+80573F	Samsung Electronics
+805719	Samsung Electronics
+8086D7	Samsung Electronics
+8087C9	Samsung Electronics
+808C97	Samsung Electronics
+84119E	Samsung Electronics
+842E27	Samsung Electronics
+845181	Samsung Electronics
+84A466	Samsung Electronics
+84B541	Samsung Electronics
+84C0EF	Samsung Electronics
+88329B	Samsung Electronics
+8866A5	Samsung Electronics
+88987E	Samsung Electronics
+889B39	Samsung Electronics
+889F6F	Samsung Electronics
+88A303	Samsung Electronics
+88ADD2	Samsung Electronics
+88BD45	Samsung Electronics
+8C1ABF	Samsung Electronics
+8C71F8	Samsung Electronics
+8C7712	Samsung Electronics
+8CBFA6	Samsung Electronics
+8CC8CD	Samsung Electronics
+8CCF5C	Samsung Electronics
+8CE5C0	Samsung Electronics
+9000DB	Samsung Electronics
+901D27	Samsung Electronics
+9034FC	Samsung Electronics
+9046A2	Samsung Electronics
+907240	Samsung Electronics
+90F1AA	Samsung Electronics
+945103	Samsung Electronics
+9463D1	Samsung Electronics
+94350A	Samsung Electronics
+9476B7	Samsung Electronics
+9877C4	Samsung Electronics
+987BF3	Samsung Electronics
+98E7F4	Samsung Electronics
+9C2A70	Samsung Electronics
+9C3AAF	Samsung Electronics
+9C65B0	Samsung Electronics
+9C8C6E	Samsung Electronics
+9CD35B	Samsung Electronics
+A00798	Samsung Electronics
+A07591	Samsung Electronics
+A0821F	Samsung Electronics
+A0B4A5	Samsung Electronics
+A0CBFD	Samsung Electronics
+A0F459	Samsung Electronics
+A407B6	Samsung Electronics
+A40DBC	Samsung Electronics
+A4EBD3	Samsung Electronics
+A8F274	Samsung Electronics
+AC1E92	Samsung Electronics
+AC5A14	Samsung Electronics
+B047BF	Samsung Electronics
+B0C4E7	Samsung Electronics
+B0D09C	Samsung Electronics
+B0EC71	Samsung Electronics
+B0EC8F	Samsung Electronics
+B4074A	Samsung Electronics
+B407F9	Samsung Electronics
+B43A28	Samsung Electronics
+B46293	Samsung Electronics
+B4BFF6	Samsung Electronics
+B857D8	Samsung Electronics
+B85A73	Samsung Electronics
+B85E7B	Samsung Electronics
+B86CE8	Samsung Electronics
+B8BB23	Samsung Electronics
+B8BC1B	Samsung Electronics
+B8C68E	Samsung Electronics
+B8D9CE	Samsung Electronics
+BC1485	Samsung Electronics
+BC20A4	Samsung Electronics
+BC4486	Samsung Electronics
+BC4760	Samsung Electronics
+BC54FC	Samsung Electronics
+BC72B1	Samsung Electronics
+BC7ABF	Samsung Electronics
+BC851F	Samsung Electronics
+BC8CCD	Samsung Electronics
+BC9691	Samsung Electronics
+BCA58B	Samsung Electronics
+C01173	Samsung Electronics
+C06599	Samsung Electronics
+C087EB	Samsung Electronics
+C08997	Samsung Electronics
+C0BDD1	Samsung Electronics
+C0D3C0	Samsung Electronics
+C0DCDA	Samsung Electronics
+C0E42D	Samsung Electronics
+C0F2FB	Samsung Electronics
+C44202	Samsung Electronics
+C45006	Samsung Electronics
+C462EA	Samsung Electronics
+C4731E	Samsung Electronics
+C488E5	Samsung Electronics
+C493D9	Samsung Electronics
+C4AE12	Samsung Electronics
+C81479	Samsung Electronics
+C819F7	Samsung Electronics
+C81E8E	Samsung Electronics
+C83870	Samsung Electronics
+C87E75	Samsung Electronics
+C8A823	Samsung Electronics
+C8D7B0	Samsung Electronics
+CC051B	Samsung Electronics
+CC07AB	Samsung Electronics
+CC2119	Samsung Electronics
+CC3A61	Samsung Electronics
+CC464E	Samsung Electronics
+CC6EA4	Samsung Electronics
+CC7314	Samsung Electronics
+CC9E00	Samsung Electronics
+CCB11A	Samsung Electronics
+CCF9E8	Samsung Electronics
+CCF9FB	Samsung Electronics
+D003DF	Samsung Electronics
+D0176A	Samsung Electronics
+D02544	Samsung Electronics
+D059E4	Samsung Electronics
+D0667B	Samsung Electronics
+D087E2	Samsung Electronics
+D0C1B1	Samsung Electronics
+D0D003	Samsung Electronics
+D0FCCC	Samsung Electronics
+D411A3	Samsung Electronics
+D47AE2	Samsung Electronics
+D48890	Samsung Electronics
+D4881D	Samsung Electronics
+D4AE05	Samsung Electronics
+D4E6B7	Samsung Electronics
+D4E8B2	Samsung Electronics
+D8004D	Samsung Electronics
+D80831	Samsung Electronics
+D80B9A	Samsung Electronics
+D831CF	Samsung Electronics
+D857EF	Samsung Electronics
+D85B2A	Samsung Electronics
+D868C3	Samsung Electronics
+D89695	Samsung Electronics
+D8C4E9	Samsung Electronics
+D8E0E1	Samsung Electronics
+DC446D	Samsung Electronics
+DC74A8	Samsung Electronics
+DCA971	Samsung Electronics
+DCCF96	Samsung Electronics
+DCD87C	Samsung Electronics
+DCF756	Samsung Electronics
+E09971	Samsung Electronics
+E0AA96	Samsung Electronics
+E0CBEE	Samsung Electronics
+E0DB10	Samsung Electronics
+E4121D	Samsung Electronics
+E432CB	Samsung Electronics
+E440E2	Samsung Electronics
+E458B8	Samsung Electronics
+E458E7	Samsung Electronics
+E45D75	Samsung Electronics
+E47CF9	Samsung Electronics
+E47DBD	Samsung Electronics
+E47ED0	Samsung Electronics
+E48B7F	Samsung Electronics
+E49A79	Samsung Electronics
+E49F58	Samsung Electronics
+E4B021	Samsung Electronics
+E4E0C5	Samsung Electronics
+E8039A	Samsung Electronics
+E81132	Samsung Electronics
+E83A12	Samsung Electronics
+E84E84	Samsung Electronics
+E89309	Samsung Electronics
+E8B4C8	Samsung Electronics
+E8E5D6	Samsung Electronics
+EC107B	Samsung Electronics
+EC1F72	Samsung Electronics
+EC9BF3	Samsung Electronics
+F008F1	Samsung Electronics
+F0272D	Samsung Electronics
+F05A09	Samsung Electronics
+F05B7B	Samsung Electronics
+F06BCA	Samsung Electronics
+F0728C	Samsung Electronics
+F08A76	Samsung Electronics
+F0E77E	Samsung Electronics
+F40E22	Samsung Electronics
+F47190	Samsung Electronics
+F47B5E	Samsung Electronics
+F47DEF	Samsung Electronics
+F49F54	Samsung Electronics
+F4C447	Samsung Electronics
+F4D9FB	Samsung Electronics
+F4DEAF	Samsung Electronics
+F8042E	Samsung Electronics
+F8042E	Samsung Electronics
+F8D0BD	Samsung Electronics
+F8E61A	Samsung Electronics
+FC0012	Toshiba
+FC1910	Samsung Electronics
+FC1F19	Samsung Electronics
+FC4203	Samsung Electronics
+FC643A	Samsung Electronics
+FC8F90	Samsung Electronics
+FCA13E	Samsung Electronics
+FCA621	Samsung Electronics
+FCAA14	Samsung Electronics
+FCDE90	Samsung Electronics
+FCF136	Samsung Electronics

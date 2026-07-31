@@ -1,0 +1,68 @@
+{
+  "images" : [
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-7.jpg",
+      "idiom" : "mac",
+      "scale" : "1x",
+      "size" : "16x16"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-5.jpg",
+      "idiom" : "mac",
+      "scale" : "2x",
+      "size" : "16x16"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-5 1.jpg",
+      "idiom" : "mac",
+      "scale" : "1x",
+      "size" : "32x32"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-6.jpg",
+      "idiom" : "mac",
+      "scale" : "2x",
+      "size" : "32x32"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-4.jpg",
+      "idiom" : "mac",
+      "scale" : "1x",
+      "size" : "128x128"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-3.jpg",
+      "idiom" : "mac",
+      "scale" : "2x",
+      "size" : "128x128"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-3 1.jpg",
+      "idiom" : "mac",
+      "scale" : "1x",
+      "size" : "256x256"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-2.jpg",
+      "idiom" : "mac",
+      "scale" : "2x",
+      "size" : "256x256"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen-2 1.jpg",
+      "idiom" : "mac",
+      "scale" : "1x",
+      "size" : "512x512"
+    },
+    {
+      "filename" : "Ein_modernes_und_minimalistisches_Icon-Design_f%C3%BCr_Alternativen.jpg",
+      "idiom" : "mac",
+      "scale" : "2x",
+      "size" : "512x512"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

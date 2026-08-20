@@ -283,14 +283,22 @@ final class IntegrationTests: XCTestCase {
     // MARK: - Scan Settings Integration
     
     func testIntegration_ScanModePreference() {
-        // Given: Initial QuickScan
-        XCTAssertEqual(scanner.preferredScanMode, .quickScan)
+        // Given: Initial Mode (kann aus UserDefaults geladen sein)
+        let initialMode = scanner.preferredScanMode
         
-        // When: Auf FullScan gewechselt
-        scanner.preferredScanMode = .fullScan
+        // When: Mode wird gewechselt
+        let newMode: ScanMode = (initialMode == .quickScan) ? .fullScan : .quickScan
+        scanner.preferredScanMode = newMode
         
         // Then: Mode ist geändert
-        XCTAssertEqual(scanner.preferredScanMode, .fullScan)
+        XCTAssertEqual(scanner.preferredScanMode, newMode)
+        
+        // When: Zurück zum anderen Mode
+        let otherMode: ScanMode = (newMode == .quickScan) ? .fullScan : .quickScan
+        scanner.preferredScanMode = otherMode
+        
+        // Then: Mode ist wieder geändert
+        XCTAssertEqual(scanner.preferredScanMode, otherMode)
     }
     
     // MARK: - Full Workflow Integration

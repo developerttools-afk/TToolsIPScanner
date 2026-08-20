@@ -16,7 +16,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "AA:BB:CC:DD:EE:FF",
             manufacturer: "Apple",
             openPorts: [80, 443],
-            status: .active,
+            status: .current,
             isExpanded: true
         )
         
@@ -27,7 +27,7 @@ final class DeviceInfoTests: XCTestCase {
         XCTAssertEqual(device.macAddress, "AA:BB:CC:DD:EE:FF")
         XCTAssertEqual(device.manufacturer, "Apple")
         XCTAssertEqual(device.openPorts, [80, 443])
-        XCTAssertEqual(device.status, .active)
+        XCTAssertEqual(device.status, .current)
         XCTAssertTrue(device.isExpanded)
     }
     
@@ -39,7 +39,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -49,7 +49,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -65,7 +65,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -87,7 +87,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "AA:BB:CC:DD:EE:FF",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -106,7 +106,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -125,7 +125,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -148,7 +148,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -175,7 +175,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "AA:BB:CC:DD:EE:FF",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -185,7 +185,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "AA:BB:CC:DD:EE:FF",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -205,7 +205,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -232,7 +232,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -242,7 +242,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -255,9 +255,9 @@ final class DeviceInfoTests: XCTestCase {
         let id1 = UUID()
         let id2 = UUID()
         
-        let device1a = DeviceInfo(id: id1, ipAddress: "192.168.1.1", hostName: "A", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
-        let device1b = DeviceInfo(id: id1, ipAddress: "192.168.1.2", hostName: "B", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
-        let device2 = DeviceInfo(id: id2, ipAddress: "192.168.1.3", hostName: "C", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
+        let device1a = DeviceInfo(id: id1, ipAddress: "192.168.1.1", hostName: "A", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
+        let device1b = DeviceInfo(id: id1, ipAddress: "192.168.1.2", hostName: "B", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
+        let device2 = DeviceInfo(id: id2, ipAddress: "192.168.1.3", hostName: "C", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
         
         // When: Set wird erstellt
         let set: Set<DeviceInfo> = [device1a, device1b, device2]
@@ -277,7 +277,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "AA:BB:CC:DD:EE:FF",
             manufacturer: "Apple",
             openPorts: [80, 443, 8080],
-            status: .active,
+            status: .current,
             isExpanded: true
         )
         
@@ -299,7 +299,7 @@ final class DeviceInfoTests: XCTestCase {
     func testCodable_ArrayOfDevices() throws {
         // Given: Array von Devices
         let devices = [
-            DeviceInfo(ipAddress: "192.168.1.1", hostName: "Router", macAddress: "AA:BB:CC:DD:EE:01", manufacturer: "Apple", openPorts: [80], status: .active, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.1", hostName: "Router", macAddress: "AA:BB:CC:DD:EE:01", manufacturer: "Apple", openPorts: [80], status: .current, isExpanded: false),
             DeviceInfo(ipAddress: "192.168.1.2", hostName: "PC", macAddress: "AA:BB:CC:DD:EE:02", manufacturer: "Dell", openPorts: [22, 3389], status: .current, isExpanded: true),
             DeviceInfo(ipAddress: "192.168.1.3", hostName: "Printer", macAddress: "", manufacturer: "", openPorts: [], status: .new, isExpanded: false)
         ]
@@ -324,7 +324,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -350,7 +350,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -391,7 +391,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -429,7 +429,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .new,
             isExpanded: false
         )
         
@@ -450,7 +450,7 @@ final class DeviceInfoTests: XCTestCase {
             macAddress: "B8:27:EB:AA:BB:CC",
             manufacturer: "Raspberry Pi Foundation",
             openPorts: [80, 443, 53, 22],
-            status: .active,
+            status: .current,
             isExpanded: false
         )
         

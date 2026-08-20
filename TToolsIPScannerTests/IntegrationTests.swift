@@ -102,9 +102,9 @@ final class IntegrationTests: XCTestCase {
     func testIntegration_SortingByIP() {
         // Given: Unsortierte Devices
         scanner.devices = [
-            DeviceInfo(ipAddress: "192.168.1.20", hostName: "B", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false),
-            DeviceInfo(ipAddress: "192.168.1.2", hostName: "A", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false),
-            DeviceInfo(ipAddress: "192.168.1.100", hostName: "C", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
+            DeviceInfo(ipAddress: "192.168.1.20", hostName: "B", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.2", hostName: "A", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.100", hostName: "C", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
         ]
         
         // When: Nach IP sortiert (aufsteigend)
@@ -120,9 +120,9 @@ final class IntegrationTests: XCTestCase {
     func testIntegration_SortingByHostname() {
         // Given: Devices mit verschiedenen Hostnamen
         scanner.devices = [
-            DeviceInfo(ipAddress: "192.168.1.1", hostName: "Zebra", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false),
-            DeviceInfo(ipAddress: "192.168.1.2", hostName: "Alpha", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false),
-            DeviceInfo(ipAddress: "192.168.1.3", hostName: "Beta", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
+            DeviceInfo(ipAddress: "192.168.1.1", hostName: "Zebra", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.2", hostName: "Alpha", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.3", hostName: "Beta", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
         ]
         
         // When: Nach Hostname sortiert
@@ -138,9 +138,9 @@ final class IntegrationTests: XCTestCase {
     func testIntegration_SortingDescending() {
         // Given: Devices
         scanner.devices = [
-            DeviceInfo(ipAddress: "192.168.1.1", hostName: "A", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false),
-            DeviceInfo(ipAddress: "192.168.1.2", hostName: "B", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false),
-            DeviceInfo(ipAddress: "192.168.1.3", hostName: "C", macAddress: "", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
+            DeviceInfo(ipAddress: "192.168.1.1", hostName: "A", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.2", hostName: "B", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false),
+            DeviceInfo(ipAddress: "192.168.1.3", hostName: "C", macAddress: "", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
         ]
         
         // When: Descending sortiert
@@ -404,7 +404,7 @@ final class IntegrationTests: XCTestCase {
                 macAddress: String(format: "AA:BB:CC:DD:%02X:%02X", i / 256, i % 256),
                 manufacturer: "",
                 openPorts: [],
-                status: .active,
+                status: .current,
                 isExpanded: false
             ))
         }
@@ -429,7 +429,7 @@ final class IntegrationTests: XCTestCase {
         scanner.customPorts = [22, 80, 443]
         scanner.recentNetworks = ["192.168.1.0", "10.0.0.0"]
         scanner.devices = [
-            DeviceInfo(ipAddress: "192.168.1.1", hostName: "Router", macAddress: "AA:BB:CC:DD:EE:01", manufacturer: "", openPorts: [], status: .active, isExpanded: false)
+            DeviceInfo(ipAddress: "192.168.1.1", hostName: "Router", macAddress: "AA:BB:CC:DD:EE:01", manufacturer: "", openPorts: [], status: .current, isExpanded: false)
         ]
         
         // When: Settings werden gespeichert

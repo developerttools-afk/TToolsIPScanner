@@ -257,7 +257,7 @@ final class DeviceAliasTests: XCTestCase {
             macAddress: "AA:BB:CC:DD:EE:FF",
             manufacturer: "",
             openPorts: [],
-            status: .active,
+            status: .current,
             isExpanded: false
         )
         

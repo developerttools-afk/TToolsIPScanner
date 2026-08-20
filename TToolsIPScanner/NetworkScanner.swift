@@ -70,6 +70,8 @@ class NetworkScanner: ObservableObject {
     internal var ouiDatabase: [String: String] = [:]
     /// Current scan task - used for structured cancellation with async/await
     internal var currentScanTask: Task<Void, Never>?
+    /// DNS-Cache für Performance-Optimierung
+    internal let dnsCache = DNSCache(validityDuration: 300, maxSize: 1000)
     
     // MARK: - UserDefaults Keys
     internal let customPortsKey = "customPorts"

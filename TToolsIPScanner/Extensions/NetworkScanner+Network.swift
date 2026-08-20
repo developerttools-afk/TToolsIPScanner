@@ -98,9 +98,23 @@ extension NetworkScanner {
         }
     }
     
-    /// Reverse-DNS lookup with timeout using async/await
+    /// Reverse-DNS lookup with caching and timeout using async/await
+    ///
+    /// Diese Methode prüft zuerst den DNS-Cache. Bei Cache-Miss wird ein
+    /// DNS-Lookup mit async/await durchgeführt und das Ergebnis im Cache gespeichert.
+    ///
+    /// - Parameters:
+    ///   - ip: IP-Adresse für DNS-Lookup
+    ///   - timeout: Timeout in Sekunden (Standard: 0.8s)
+    /// - Returns: Hostname oder `nil` bei Timeout/Fehler
     internal func getHostName(for ip: String, timeout: TimeInterval = 0.8) async -> String? {
-        await withTaskGroup(of: String?.self) { group in
+        // Prüfe Cache zuerst
+        if let cached = await dnsCache.get(ip) {
+            return cached
+        }
+        
+        // Cache-Miss: Führe DNS-Lookup durch mit async/await
+        let resolvedName = await withTaskGroup(of: String?.self) { group in
             group.addTask {
                 var hints = addrinfo()
                 hints.ai_family = AF_INET
@@ -144,6 +158,31 @@ extension NetworkScanner {
             }
             
             return nil
+        }
+    }
+    
+    /// Gibt DNS-Cache-Statistiken zurück
+    ///
+    /// - Returns: Formatierter String mit Cache-Statistiken
+    func getDNSCacheStatistics() async -> String {
+        await dnsCache.formattedStatistics()
+    }
+    
+    /// Leert den DNS-Cache
+    ///
+    /// Nützlich zum Testen oder wenn aktuelle DNS-Einträge erzwungen werden sollen.
+    func clearDNSCache() {
+        Task {
+            await dnsCache.clear()
+        }
+    }
+    
+    /// Entfernt abgelaufene DNS-Cache-Einträge
+    ///
+    /// Kann periodisch aufgerufen werden, um Memory zu sparen.
+    func pruneExpiredDNSCache() {
+        Task {
+            await dnsCache.pruneExpired()
         }
     }
 }

@@ -207,7 +207,8 @@ extension NetworkScanner {
         await resolveAndScanDevices(
             mode: mode,
             cachedDetails: cachedDetails,
-            discoveryPorts: discoveryHits.snapshot()
+            discoveryPorts: discoveryHits.snapshot(),
+            ouiDB: ouiDB
         )
     }
     
@@ -215,7 +216,8 @@ extension NetworkScanner {
     private func resolveAndScanDevices(
         mode: ScanMode,
         cachedDetails: [String: (hostName: String, macAddress: String, manufacturer: String, openPorts: [Int])],
-        discoveryPorts: [String: [Int]]
+        discoveryPorts: [String: [Int]],
+        ouiDB: [String: String]
     ) async {
         let snapshot = await MainActor.run { self.devices }
         guard !snapshot.isEmpty else {

@@ -69,6 +69,8 @@ class NetworkScanner: ObservableObject {
     internal var ouiDatabase: [String: String] = [:]
     /// Bumped on start/stop so in-flight work can detect cancellation.
     internal var scanGeneration: Int = 0
+    /// DNS-Cache für Performance-Optimierung
+    internal let dnsCache = DNSCache(validityDuration: 300, maxSize: 1000)
     
     // MARK: - UserDefaults Keys
     internal let customPortsKey = "customPorts"

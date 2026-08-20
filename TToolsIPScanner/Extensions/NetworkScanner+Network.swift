@@ -98,8 +98,48 @@ extension NetworkScanner {
         }
     }
     
-    /// Reverse-DNS lookup with timeout on a matching utility QoS queue.
+    /// Reverse-DNS lookup with caching and timeout
+    ///
+    /// Diese Methode prüft zuerst den DNS-Cache. Bei Cache-Miss wird ein
+    /// DNS-Lookup durchgeführt und das Ergebnis im Cache gespeichert.
+    ///
+    /// - Parameters:
+    ///   - ip: IP-Adresse für DNS-Lookup
+    ///   - timeout: Timeout in Sekunden (Standard: 0.8s)
+    /// - Returns: Hostname oder `nil` bei Timeout/Fehler
     internal func getHostName(for ip: String, timeout: TimeInterval = 0.8) -> String? {
+        // Prüfe Cache zuerst (synchron über Task)
+        let cachedHostname = Task {
+            await dnsCache.get(ip)
+        }
+        
+        if let cached = try? cachedHostname.result.get() {
+            return cached
+        }
+        
+        // Cache-Miss: Führe DNS-Lookup durch
+        let resolvedName = performDNSLookup(for: ip, timeout: timeout)
+        
+        // Speichere Ergebnis im Cache (auch bei nil für negative Caching)
+        if let hostname = resolvedName {
+            Task {
+                await dnsCache.set(hostname, for: ip)
+            }
+        }
+        
+        return resolvedName
+    }
+    
+    /// Führt den eigentlichen DNS-Lookup durch
+    ///
+    /// Diese Methode ist von getHostName() getrennt, um Caching
+    /// und DNS-Lookup sauber zu trennen.
+    ///
+    /// - Parameters:
+    ///   - ip: IP-Adresse für DNS-Lookup
+    ///   - timeout: Timeout in Sekunden
+    /// - Returns: Hostname oder `nil` bei Timeout/Fehler
+    private func performDNSLookup(for ip: String, timeout: TimeInterval) -> String? {
         let lock = NSLock()
         var resolvedName: String?
         let group = DispatchGroup()
@@ -146,5 +186,30 @@ extension NetworkScanner {
         lock.lock()
         defer { lock.unlock() }
         return resolvedName
+    }
+    
+    /// Gibt DNS-Cache-Statistiken zurück
+    ///
+    /// - Returns: Formatierter String mit Cache-Statistiken
+    func getDNSCacheStatistics() async -> String {
+        await dnsCache.formattedStatistics()
+    }
+    
+    /// Leert den DNS-Cache
+    ///
+    /// Nützlich zum Testen oder wenn aktuelle DNS-Einträge erzwungen werden sollen.
+    func clearDNSCache() {
+        Task {
+            await dnsCache.clear()
+        }
+    }
+    
+    /// Entfernt abgelaufene DNS-Cache-Einträge
+    ///
+    /// Kann periodisch aufgerufen werden, um Memory zu sparen.
+    func pruneExpiredDNSCache() {
+        Task {
+            await dnsCache.pruneExpired()
+        }
     }
 }

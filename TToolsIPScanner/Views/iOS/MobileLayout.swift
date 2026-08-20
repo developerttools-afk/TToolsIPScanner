@@ -5,6 +5,7 @@ struct MobileLayout: View {
     @ObservedObject var scanner: NetworkScanner
     @State private var showPortEditor = false
     @State private var showOUIDatabaseSettings = false
+    @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
     
     private var fullScanBinding: Binding<Bool> {
@@ -115,6 +116,10 @@ struct MobileLayout: View {
                             Label("OUI-Datenbank", systemImage: "server.rack")
                         }
                         
+                        Button(action: { showDNSCacheSettings = true }) {
+                            Label("DNS-Cache", systemImage: "memorychip")
+                        }
+                        
                         Divider()
                         
                         Button(action: { scanner.updateOUIDatabase(useFullList: false) }) {
@@ -145,6 +150,11 @@ struct MobileLayout: View {
             .sheet(isPresented: $showOUIDatabaseSettings) {
                 NavigationStack {
                     OUIDatabaseSettingsView(scanner: scanner)
+                }
+            }
+            .sheet(isPresented: $showDNSCacheSettings) {
+                NavigationStack {
+                    DNSCacheSettingsView(scanner: scanner)
                 }
             }
             .sheet(isPresented: $showUserGuide) {

@@ -9,6 +9,7 @@ struct DesktopLayout: View {
     @State private var showTableSettings = false
     @State private var showPortEditor = false
     @State private var showOUIDatabaseSettings = false
+    @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
     @State private var sortOrder = [KeyPathComparator(\DeviceInfo.ipAddress)]
     
@@ -56,6 +57,10 @@ struct DesktopLayout: View {
                         Label("OUI-Datenbank", systemImage: "server.rack")
                     }
                     
+                    Button(action: { showDNSCacheSettings = true }) {
+                        Label("DNS-Cache", systemImage: "memorychip")
+                    }
+                    
                     Divider()
                     
                     Button(action: { showUserGuide = true }) {
@@ -81,6 +86,12 @@ struct DesktopLayout: View {
         .sheet(isPresented: $showOUIDatabaseSettings) {
             NavigationStack {
                 OUIDatabaseSettingsView(scanner: scanner)
+            }
+        }
+        .sheet(isPresented: $showDNSCacheSettings) {
+            NavigationStack {
+                DNSCacheSettingsView(scanner: scanner)
+                    .frame(minWidth: 400, minHeight: 500)
             }
         }
         .sheet(isPresented: $showUserGuide) {

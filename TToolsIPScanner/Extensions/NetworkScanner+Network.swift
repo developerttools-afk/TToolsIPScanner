@@ -114,7 +114,7 @@ extension NetworkScanner {
         }
         
         // Cache-Miss: Führe DNS-Lookup durch mit async/await
-        let resolvedName = await withTaskGroup(of: String?.self) { group in
+        return await withTaskGroup(of: String?.self) { group in
             group.addTask {
                 var hints = addrinfo()
                 hints.ai_family = AF_INET

@@ -5,16 +5,17 @@ import Darwin
 #endif
 
 extension NetworkScanner {
-    internal func getMacAddress(
+    nonisolated internal func getMacAddress(
         for ip: String,
         openPorts: [Int] = [],
-        knownHostName: String? = nil
+        knownHostName: String? = nil,
+        ouiDB: [String: String]
     ) -> (mac: String, manufacturer: String) {
         #if os(macOS)
         // Prefer sysctl only — spawning /usr/sbin/arp under App Sandbox triggers
         // Console noise: "Unable to obtain a task name port right".
         if let mac = lookupMacFromARPTable(ip: ip) {
-            let vendor = lookupManufacturer(mac: mac)
+            let vendor = lookupManufacturer(mac: mac, ouiDB: ouiDB)
             return (mac, vendor == "Unbekannt" ? (manufacturerFromOpenPorts(openPorts) ?? vendor) : vendor)
         }
         #endif
@@ -38,7 +39,7 @@ extension NetworkScanner {
     
     #if os(macOS)
     /// Read kernel ARP/routing table via sysctl (works under App Sandbox without subprocess).
-    private func lookupMacFromARPTable(ip: String) -> String? {
+    nonisolated private func lookupMacFromARPTable(ip: String) -> String? {
         var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO]
         var length = 0
         guard sysctl(&mib, 6, nil, &length, nil, 0) == 0, length > 0 else { return nil }
@@ -63,7 +64,7 @@ extension NetworkScanner {
         return nil
     }
     
-    private func macAddress(inRouteMessage base: UnsafeMutablePointer<UInt8>, length: Int, matchingIP: String) -> String? {
+    nonisolated private func macAddress(inRouteMessage base: UnsafeMutablePointer<UInt8>, length: Int, matchingIP: String) -> String? {
         let rtm = base.withMemoryRebound(to: rt_msghdr.self, capacity: 1) { $0.pointee }
         var addrPtr = base.advanced(by: MemoryLayout<rt_msghdr>.stride)
         let end = base.advanced(by: length)
@@ -111,7 +112,7 @@ extension NetworkScanner {
     }
     #endif
     
-    private func manufacturerFromOpenPorts(_ openPorts: [Int]) -> String? {
+    nonisolated private func manufacturerFromOpenPorts(_ openPorts: [Int]) -> String? {
         if openPorts.contains(548) || openPorts.contains(5009) || openPorts.contains(5353) || openPorts.contains(62078) {
             return "Apple, Inc."
         }
@@ -127,11 +128,11 @@ extension NetworkScanner {
         return nil
     }
     
-    private func lookupManufacturer(mac: String) -> String {
+    nonisolated private func lookupManufacturer(mac: String, ouiDB: [String: String]) -> String {
         let cleanMac = mac.replacingOccurrences(of: ":", with: "").uppercased()
         let oui = String(cleanMac.prefix(6))
         
-        if let manufacturer = ouiDatabase[oui] {
+        if let manufacturer = ouiDB[oui] {
             return manufacturer
         }
         if let manufacturer = NetworkConstants.additionalOUIs[oui] {
@@ -140,7 +141,7 @@ extension NetworkScanner {
         return "Unbekannt"
     }
 
-    internal func getManufacturerFromPortScan(openPorts: [Int]) -> String? {
+    nonisolated internal func getManufacturerFromPortScan(openPorts: [Int]) -> String? {
         manufacturerFromOpenPorts(openPorts)
     }
 }

@@ -2,12 +2,12 @@ import Foundation
 
 extension NetworkScanner {
     /// TCP connect probe used for host discovery and port scanning.
-    internal func isHostReachable(_ ip: String) -> Bool {
+    nonisolated internal func isHostReachable(_ ip: String) -> Bool {
         !probeOpenDiscoveryPorts(ip).isEmpty
     }
     
     /// Lightweight host discovery — only a small fixed port set, stops early once the host is up.
-    internal func probeOpenDiscoveryPorts(_ ip: String) -> [Int] {
+    nonisolated internal func probeOpenDiscoveryPorts(_ ip: String) -> [Int] {
         var open: [Int] = []
         for port in NetworkConstants.discoveryPorts {
             if isPortOpen(ip: ip, port: port, timeout: NetworkConstants.discoveryTimeout) {
@@ -19,7 +19,7 @@ extension NetworkScanner {
     }
     
     /// Tests every given port and returns those that are open (no early exit).
-    internal func probeOpenPorts(
+    nonisolated internal func probeOpenPorts(
         _ ip: String,
         ports: [Int],
         timeout: TimeInterval = 0.5
@@ -33,7 +33,7 @@ extension NetworkScanner {
         return open
     }
     
-    internal func isPortOpen(ip: String, port: Int, timeout: TimeInterval) -> Bool {
+    nonisolated internal func isPortOpen(ip: String, port: Int, timeout: TimeInterval) -> Bool {
         let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
         guard socket >= 0 else { return false }
         

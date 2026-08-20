@@ -3,7 +3,7 @@ import Network
 import SystemConfiguration
 
 extension NetworkScanner {
-    func getCurrentNetwork() -> String? {
+    nonisolated func getCurrentNetwork() -> String? {
         var address: String?
         
         let monitor = NWPathMonitor()
@@ -37,7 +37,7 @@ extension NetworkScanner {
     
     /// Resolves IPv4 for a named interface (e.g. `en0`). If `name` is nil, returns
     /// the first non-loopback IPv4 that does not look like WWAN.
-    private func getIPAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
+    nonisolated private func getIPAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
         defer { freeifaddrs(ifaddr) }

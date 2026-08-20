@@ -136,6 +136,7 @@ extension NetworkScanner {
         let baseIP = baseIP.split(separator: ".").dropLast().joined(separator: ".")
         let totalIPs = 254
         let previousDevices = await MainActor.run { self.previousDevices }
+        let ouiDB = await MainActor.run { self.ouiDatabase }
         
         let discoveryHits = ResolutionStore<String, [Int]>()
         
@@ -267,7 +268,8 @@ extension NetworkScanner {
                     var (macAddress, manufacturer) = self.getMacAddress(
                         for: device.ipAddress,
                         openPorts: openPorts,
-                        knownHostName: device.hostName
+                        knownHostName: device.hostName,
+                        ouiDB: ouiDB
                     )
                     if macAddress.isEmpty {
                         macAddress = cached?.macAddress ?? device.macAddress
@@ -399,7 +401,7 @@ extension NetworkScanner {
         saveSettings()
     }
     
-    private func usefulHostName(_ name: String?) -> String? {
+    nonisolated private func usefulHostName(_ name: String?) -> String? {
         guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines),
               !name.isEmpty,
               name != "…",

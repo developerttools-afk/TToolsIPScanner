@@ -42,7 +42,7 @@ class NetworkScanner: ObservableObject {
     @Published var ouiDatabaseTimestamp: Date?
     @Published var isOUIDatabaseValid: Bool = false
     @Published var currentScanPort: Int = 0
-    @Published var scanError: String?
+    @Published var scanError: ScanError?
     @Published var preferredScanMode: ScanMode = .quickScan {
         didSet {
             UserDefaults.standard.set(

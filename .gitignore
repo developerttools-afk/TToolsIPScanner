@@ -1,0 +1,28 @@
+# Xcode / macOS
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+.DS_Store
+**/.DS_Store
+
+# Archives / export artifacts
+*.xcarchive/
+export/
+export-ios/
+export-macos/
+
+# Swift Package Manager
+.swiftpm/
+Packages/
+Package.resolved
+
+# Misc
+*.swp
+*~
+.idea/

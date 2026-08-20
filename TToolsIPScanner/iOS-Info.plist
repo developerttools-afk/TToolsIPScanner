@@ -16,6 +16,7 @@
 	<array>
 		<string>_http._tcp</string>
 		<string>_https._tcp</string>
+		<string>_ssh._tcp</string>
 	</array>
 	<key>NSNetworkingUsageDescription</key>
 	<string>Die App benötigt Netzwerkzugriff, um nach Geräten zu suchen.</string>

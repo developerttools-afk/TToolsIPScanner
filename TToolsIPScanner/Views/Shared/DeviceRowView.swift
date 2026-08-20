@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DeviceRowView: View {
     let device: DeviceInfo
+    var displayName: String? = nil
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -13,7 +14,7 @@ struct DeviceRowView: View {
                 
                 Spacer()
                 
-                Text(device.hostName)
+                Text(displayName ?? device.hostName)
                     .foregroundColor(.secondary)
                     .font(.subheadline)
             }
@@ -29,4 +30,4 @@ struct DeviceRowView: View {
             }
         }
     }
-} 
+}

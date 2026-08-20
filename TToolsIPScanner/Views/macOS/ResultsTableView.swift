@@ -71,19 +71,29 @@ struct ResultsTableView: View {
             
             if tableSettings.visibleColumns.contains(.hostname) {
                 TableColumn("Gerätename", value: \.hostName) { device in
-                    let aliasName = scanner.getDeviceAlias(for: device)?.customName
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    let displayName = (aliasName?.isEmpty == false) ? aliasName! : device.hostName
+                    let displayName = scanner.displayName(for: device)
+                    let hasAlias = scanner.getDeviceAlias(for: device) != nil
                     HStack {
                         Text(displayName)
-                        if aliasName?.isEmpty == false {
-                            Image(systemName: "pencil.circle")
+                        if hasAlias {
+                            Image(systemName: "pencil.circle.fill")
                                 .foregroundColor(.blue)
+                                .help("Gespeicherter Hostname-Alias")
                         }
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
                         deviceToEdit = device
+                    }
+                    .contextMenu {
+                        Button("Alias bearbeiten…") {
+                            deviceToEdit = device
+                        }
+                        if hasAlias {
+                            Button("Alias löschen", role: .destructive) {
+                                scanner.removeDeviceAlias(for: device)
+                            }
+                        }
                     }
                 }
             }

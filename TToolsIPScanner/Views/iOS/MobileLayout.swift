@@ -5,6 +5,7 @@ struct MobileLayout: View {
     @ObservedObject var scanner: NetworkScanner
     @State private var showPortEditor = false
     @State private var showOUIDatabaseSettings = false
+    @State private var showUserGuide = false
     
     private var fullScanBinding: Binding<Bool> {
         Binding(
@@ -13,16 +14,21 @@ struct MobileLayout: View {
         )
     }
     
+    private var activeDeviceCount: Int {
+        scanner.devices.filter { $0.status != .missing }.count
+    }
+    
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    VStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 10) {
                         NetworkInputView(scanner: scanner)
                         Toggle("Vollständiger Port-Scan", isOn: fullScanBinding)
                             .disabled(scanner.isScanning)
                         ScanButton(scanner: scanner)
                     }
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                 }
                 
                 if scanner.isScanning || scanner.scanPhase == .finished {
@@ -38,46 +44,66 @@ struct MobileLayout: View {
                                 Text(option.rawValue).tag(option)
                             }
                         }
-                        .frame(maxWidth: .infinity)
                         
                         Menu {
                             Button(action: { scanner.sortAscending = true }) {
                                 Label("Aufsteigend", systemImage: "arrow.up")
-                                    .foregroundColor(scanner.sortAscending ? .accentColor : .primary)
                             }
-                            
                             Button(action: { scanner.sortAscending = false }) {
                                 Label("Absteigend", systemImage: "arrow.down")
-                                    .foregroundColor(!scanner.sortAscending ? .accentColor : .primary)
                             }
                         } label: {
                             Image(systemName: scanner.sortAscending ? "arrow.up" : "arrow.down")
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
+                                .frame(width: 32, height: 32)
                         }
                         .buttonStyle(.bordered)
                     }
-                    .padding(.vertical, 4)
-                    
-                    ForEach(scanner.devices) { device in
-                        NavigationLink {
-                            DeviceDetailView(device: device, scanner: scanner)
-                        } label: {
-                            DeviceRowView(device: device)
+                }
+                
+                Section {
+                    if scanner.devices.isEmpty {
+                        ContentUnavailableView {
+                            Label(
+                                scanner.isScanning ? "Suche läuft…" : "Keine Geräte",
+                                systemImage: scanner.isScanning ? "antenna.radiowaves.left.and.right" : "wifi.slash"
+                            )
+                        } description: {
+                            Text(
+                                scanner.isScanning
+                                    ? "Gefundene Hosts erscheinen hier."
+                                    : "Scan starten. Bei der ersten Nutzung „Lokales Netzwerk“ erlauben."
+                            )
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                        .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(scanner.devices) { device in
+                            NavigationLink {
+                                DeviceDetailView(device: device, scanner: scanner)
+                            } label: {
+                                DeviceRowView(
+                                    device: device,
+                                    displayName: scanner.displayName(for: device)
+                                )
+                            }
                         }
                     }
                 } header: {
-                    if !scanner.devices.isEmpty {
-                        HStack {
-                            Text("Gefundene Geräte")
-                            Spacer()
-                            Text("\(scanner.devices.filter { $0.status != .missing }.count) aktiv")
-                                .foregroundColor(.green)
+                    HStack {
+                        Text("Gefundene Geräte")
+                        Spacer()
+                        if !scanner.devices.isEmpty {
+                            Text("\(activeDeviceCount) aktiv")
+                                .foregroundStyle(.green)
                         }
                     }
                 }
             }
             .navigationTitle("IP Scanner")
+            .onAppear {
+                LocalNetworkAccess.requestIfNeeded()
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -98,6 +124,12 @@ struct MobileLayout: View {
                         Button(action: { scanner.updateOUIDatabase(useFullList: true) }) {
                             Label("Vollständige OUI-Liste laden", systemImage: "arrow.down.circle")
                         }
+                        
+                        Divider()
+                        
+                        Button(action: { showUserGuide = true }) {
+                            Label("Bedienungsanleitung", systemImage: "questionmark.circle")
+                        }
                     } label: {
                         Image(systemName: "gearshape")
                     }
@@ -113,6 +145,11 @@ struct MobileLayout: View {
             .sheet(isPresented: $showOUIDatabaseSettings) {
                 NavigationStack {
                     OUIDatabaseSettingsView(scanner: scanner)
+                }
+            }
+            .sheet(isPresented: $showUserGuide) {
+                NavigationStack {
+                    UserGuideView()
                 }
             }
         }

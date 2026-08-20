@@ -11,7 +11,9 @@ extension NetworkScanner {
         knownHostName: String? = nil
     ) -> (mac: String, manufacturer: String) {
         #if os(macOS)
-        if let mac = lookupMacViaARPProcess(ip: ip) ?? lookupMacFromARPTable(ip: ip) {
+        // Prefer sysctl only — spawning /usr/sbin/arp under App Sandbox triggers
+        // Console noise: "Unable to obtain a task name port right".
+        if let mac = lookupMacFromARPTable(ip: ip) {
             let vendor = lookupManufacturer(mac: mac)
             return (mac, vendor == "Unbekannt" ? (manufacturerFromOpenPorts(openPorts) ?? vendor) : vendor)
         }
@@ -35,40 +37,7 @@ extension NetworkScanner {
     }
     
     #if os(macOS)
-    private func lookupMacViaARPProcess(ip: String) -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/arp")
-        process.arguments = ["-n", ip]
-        
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8),
-                  let macRange = output.range(
-                    of: "([0-9A-Fa-f]{1,2}:){5}[0-9A-Fa-f]{1,2}",
-                    options: .regularExpression
-                  ) else {
-                return nil
-            }
-            
-            let components = output[macRange]
-                .uppercased()
-                .components(separatedBy: ":")
-            return components.map { String(("0" + $0).suffix(2)) }.joined(separator: ":")
-        } catch {
-            log("ARP process failed for \(ip): \(error)")
-            return nil
-        }
-    }
-    
-    /// Fallback: read kernel ARP/routing table via sysctl (no subprocess).
+    /// Read kernel ARP/routing table via sysctl (works under App Sandbox without subprocess).
     private func lookupMacFromARPTable(ip: String) -> String? {
         var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO]
         var length = 0

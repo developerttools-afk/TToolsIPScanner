@@ -25,16 +25,22 @@ struct DeviceAliasEditor: View {
                     "MAC-Adresse",
                     value: device.macAddress.isEmpty ? "Nicht verfügbar" : device.macAddress
                 )
+                LabeledContent("Scan-Hostname", value: device.hostName)
                 if !device.manufacturer.isEmpty {
                     LabeledContent("Hersteller", value: device.manufacturer)
                 }
             }
             
-            Section(header: Text("Alias")) {
-                TextField("Name", text: $customName)
+            Section {
+                TextField("Eigener Name", text: $customName)
                     #if os(iOS)
                     .textInputAutocapitalization(.words)
                     #endif
+                Text("Dieser Name überschreibt den Hostnamen und bleibt für den nächsten Scan gespeichert (an IP und MAC).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Hostname-Alias")
             }
             
             Section(header: Text("Notizen")) {
@@ -44,7 +50,7 @@ struct DeviceAliasEditor: View {
             
             Section {
                 Button(role: .destructive) {
-                    scanner.removeDeviceAlias(for: device.aliasKey)
+                    scanner.removeDeviceAlias(for: device)
                     dismiss()
                 } label: {
                     Label("Alias löschen", systemImage: "trash")
@@ -54,14 +60,14 @@ struct DeviceAliasEditor: View {
         .navigationTitle("Alias bearbeiten")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Fertig") {
-                    let alias = DeviceAlias(
-                        customName: customName,
-                        notes: notes
+                Button("Speichern") {
+                    scanner.setDeviceAlias(
+                        for: device,
+                        alias: DeviceAlias(customName: customName, notes: notes)
                     )
-                    scanner.setDeviceAlias(for: device.aliasKey, alias: alias)
                     dismiss()
                 }
+                .disabled(customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             
             ToolbarItem(placement: .cancellationAction) {

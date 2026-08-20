@@ -15,7 +15,11 @@ extension NetworkScanner {
     }
     
     func getDeviceAlias(for device: DeviceInfo) -> DeviceAlias? {
-        getDeviceAlias(for: device.aliasKey)
+        rememberedAlias(ip: device.ipAddress, mac: device.macAddress)
+    }
+    
+    func displayName(for device: DeviceInfo) -> String {
+        rememberedHostName(ip: device.ipAddress, mac: device.macAddress) ?? device.hostName
     }
     
     func log(_ message: String) {

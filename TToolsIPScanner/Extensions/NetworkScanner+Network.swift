@@ -11,13 +11,22 @@ extension NetworkScanner {
         group.enter()
         
         monitor.pathUpdateHandler = { path in
-            if path.status == .satisfied {
-                if let interface = path.availableInterfaces.first {
-                    address = self.getIPAddress(for: interface)
-                }
+            defer {
+                group.leave()
+                monitor.cancel()
             }
-            group.leave()
-            monitor.cancel()
+            guard path.status == .satisfied else { return }
+            
+            // Prefer Wi‑Fi, then wired — never use cellular for LAN scanning.
+            let preferred =
+                path.availableInterfaces.first(where: { $0.type == .wifi })
+                ?? path.availableInterfaces.first(where: { $0.type == .wiredEthernet })
+            
+            if let preferred {
+                address = self.getIPAddress(forInterfaceNamed: preferred.name)
+            } else {
+                address = self.getIPAddress(forInterfaceNamed: nil, excludingCellularLike: true)
+            }
         }
         
         monitor.start(queue: DispatchQueue.global())
@@ -26,43 +35,55 @@ extension NetworkScanner {
         return address
     }
     
-    private func getIPAddress(for interface: NWInterface) -> String? {
-        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+    /// Resolves IPv4 for a named interface (e.g. `en0`). If `name` is nil, returns
+    /// the first non-loopback IPv4 that does not look like WWAN.
+    private func getIPAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
-        
-        guard getifaddrs(&ifaddr) == 0 else { return nil }
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
         defer { freeifaddrs(ifaddr) }
         
-        var ptr = ifaddr
-        while let currentPtr = ptr {
-            defer { ptr = currentPtr.pointee.ifa_next }
+        var fallback: String?
+        var ptr: UnsafeMutablePointer<ifaddrs>? = first
+        while let current = ptr {
+            defer { ptr = current.pointee.ifa_next }
             
-            guard let addr = currentPtr.pointee.ifa_addr,
+            let ifName = String(cString: current.pointee.ifa_name)
+            guard let addr = current.pointee.ifa_addr,
                   addr.pointee.sa_family == UInt8(AF_INET) else {
                 continue
             }
             
-            let len = socklen_t(INET_ADDRSTRLEN)
-            
-            guard getnameinfo(
-                UnsafeRawPointer(addr).assumingMemoryBound(to: sockaddr.self),
-                len,
+            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            let status = getnameinfo(
+                addr,
+                socklen_t(MemoryLayout<sockaddr_in>.size),
                 &hostname,
                 socklen_t(hostname.count),
                 nil,
                 0,
                 NI_NUMERICHOST
-            ) == 0 else {
-                continue
-            }
+            )
+            guard status == 0 else { continue }
             
             let address = String(cString: hostname)
-            if !address.hasPrefix("127") {
+            guard !address.hasPrefix("127.") else { continue }
+            
+            if let name, ifName == name {
                 return address
+            }
+            
+            // Skip typical cellular interface names when scanning for LAN.
+            if excludingCellularLike || name == nil {
+                if ifName.hasPrefix("pdp_ip") || ifName.hasPrefix("utun") {
+                    continue
+                }
+                if fallback == nil {
+                    fallback = address
+                }
             }
         }
         
-        return nil
+        return fallback
     }
     
     internal func validateIPAddress(_ ipAddress: String) -> Bool {

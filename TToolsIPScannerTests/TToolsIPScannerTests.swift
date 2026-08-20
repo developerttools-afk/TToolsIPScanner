@@ -99,6 +99,24 @@ struct TToolsIPScannerTests {
         #expect(withoutMAC.aliasKey == "192.168.1.5")
     }
     
+    @Test func rememberedAliasSurvivesIPAndMACLookup() {
+        let scanner = NetworkScanner()
+        let device = DeviceInfo(
+            ipAddress: "192.168.1.50",
+            hostName: "dhcp-host",
+            macAddress: "",
+            manufacturer: "",
+            openPorts: [],
+            status: .new,
+            isExpanded: false
+        )
+        scanner.setDeviceAlias(for: device, alias: DeviceAlias(customName: "NAS Keller", notes: ""))
+        #expect(scanner.rememberedHostName(ip: "192.168.1.50") == "NAS Keller")
+        
+        scanner.migrateAliasIfNeeded(ip: "192.168.1.50", mac: "AA:BB:CC:DD:EE:FF")
+        #expect(scanner.rememberedHostName(ip: "192.168.1.50", mac: "AA:BB:CC:DD:EE:FF") == "NAS Keller")
+    }
+    
     // MARK: - Sorting
     
     @Test func sortDevicesByIP() {

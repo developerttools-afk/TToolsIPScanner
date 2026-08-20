@@ -85,7 +85,7 @@ struct DeviceDetailView: View {
                 }
                 
                 Button(action: { showEditAlias = true }) {
-                    Label("Alias bearbeiten", systemImage: "pencil")
+                    Label("Hostname-Alias bearbeiten", systemImage: "pencil")
                 }
             }
             
@@ -96,7 +96,7 @@ struct DeviceDetailView: View {
                 }
             }
         }
-        .navigationTitle(scanner.getDeviceAlias(for: device)?.customName ?? device.hostName)
+        .navigationTitle(scanner.displayName(for: device))
         .sheet(isPresented: $showEditAlias) {
             NavigationStack {
                 DeviceAliasEditor(device: device, scanner: scanner)

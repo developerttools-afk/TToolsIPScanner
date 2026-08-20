@@ -9,21 +9,11 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var scanner = NetworkScanner()
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     var body: some View {
         #if os(iOS)
-        if horizontalSizeClass == .compact {
-            // iPhone Layout
-            MobileLayout(scanner: scanner)
-        } else {
-            // iPad Layout
-            NavigationStack {
-                MobileLayout(scanner: scanner)
-            }
-        }
+        MobileLayout(scanner: scanner)
         #else
-        // macOS Layout
         NavigationStack {
             DesktopLayout(scanner: scanner)
         }

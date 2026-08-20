@@ -22,10 +22,14 @@ extension NetworkScanner {
             if isOUIDatabaseValid {
                 ouiDatabase = cached.database
                 ouiDatabaseCount = cached.database.count
-                log("Loaded \(cached.database.count) OUI entries from cache (age: \(Int(age/86400)) days)")
+                #if DEBUG
+                print("OUI cache: \(cached.database.count) entries")
+                #endif
                 return
             } else {
-                log("OUI cache expired (\(Int(age/86400)) days old)")
+                #if DEBUG
+                print("OUI cache expired (\(Int(age/86400)) days old)")
+                #endif
             }
         }
         
@@ -93,7 +97,9 @@ extension NetworkScanner {
             let database = OUIParser.parse(content: content)
             ouiDatabase = database
             ouiDatabaseCount = database.count
-            log("Lokale OUI-Datenbank geladen (\(database.count) Einträge)")
+            #if DEBUG
+            print("Local OUI database: \(database.count) entries")
+            #endif
         }
     }
     

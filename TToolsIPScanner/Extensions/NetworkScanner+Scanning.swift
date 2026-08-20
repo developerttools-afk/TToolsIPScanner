@@ -12,6 +12,37 @@ extension NetworkScanner {
         let ipToScan = baseIP ?? currentNetwork
         scanError = nil
         
+        guard IPAddressValidator.isValidIPv4(ipToScan) else {
+            scanError = "Ungültige IP-Adresse: \(ipToScan)"
+            return
+        }
+        
+        preferredScanMode = mode
+        currentNetwork = ipToScan
+        updateNetworkRange()
+        
+        #if os(iOS) || os(visionOS)
+        // Prompt for Local Network access before BSD TCP probes (TN3179).
+        LocalNetworkAccess.requestIfNeeded()
+        scanGeneration += 1
+        let generation = scanGeneration
+        isScanning = true
+        scanPhase = .scanningNetwork
+        scanProgress = "Lokalen Netzwerkzugriff prüfen…"
+        progressPercentage = 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self, self.isScanActive(generation) else { return }
+            self.beginScanPipeline(ipToScan: ipToScan, mode: mode, generation: generation)
+        }
+        #else
+        scanGeneration += 1
+        beginScanPipeline(ipToScan: ipToScan, mode: mode, generation: scanGeneration)
+        #endif
+    }
+    
+    private func beginScanPipeline(ipToScan: String, mode: ScanMode, generation: Int) {
+        guard isScanActive(generation) else { return }
+        
         let components = ipToScan.split(separator: ".")
         if components.count >= 3 {
             let baseNetwork = components.dropLast().joined(separator: ".")
@@ -24,19 +55,6 @@ extension NetworkScanner {
                 saveSettings()
             }
         }
-        
-        currentNetwork = ipToScan
-        updateNetworkRange()
-        
-        guard IPAddressValidator.isValidIPv4(ipToScan) else {
-            scanError = "Ungültige IP-Adresse: \(ipToScan)"
-            return
-        }
-        
-        preferredScanMode = mode
-        
-        scanGeneration += 1
-        let generation = scanGeneration
         
         let cachedDetails = Dictionary(
             uniqueKeysWithValues: devices
@@ -101,13 +119,16 @@ extension NetworkScanner {
                     discoveryHits.set(foundPorts, for: ip)
                     let status = DeviceStatusResolver.status(for: ip, previousIPs: self.previousDevices)
                     let cached = cachedDetails[ip]
+                    let remembered = self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
                     
                     DispatchQueue.main.async {
                         guard self.isScanActive(generation) else { return }
                         let newDevice = DeviceInfo(
                             id: UUID(),
                             ipAddress: ip,
-                            hostName: cached.flatMap { self.usefulHostName($0.hostName) } ?? "…",
+                            hostName: remembered
+                                ?? cached.flatMap { self.usefulHostName($0.hostName) }
+                                ?? "…",
                             macAddress: cached?.macAddress ?? "",
                             manufacturer: cached?.manufacturer ?? "",
                             openPorts: foundPorts,
@@ -210,20 +231,23 @@ extension NetworkScanner {
                 }
                 
                 let cached = cachedDetails[device.ipAddress]
-                let resolvedDNS = self.getHostName(for: device.ipAddress, timeout: 0.6)
-                let hostName = self.usefulHostName(resolvedDNS)
-                    ?? self.usefulHostName(cached?.hostName)
-                    ?? self.usefulHostName(device.hostName)
-                    ?? "Unknown"
-                
                 var (macAddress, manufacturer) = self.getMacAddress(
                     for: device.ipAddress,
                     openPorts: openPorts,
-                    knownHostName: hostName
+                    knownHostName: device.hostName
                 )
                 if macAddress.isEmpty {
                     macAddress = cached?.macAddress ?? device.macAddress
                 }
+                self.migrateAliasIfNeeded(ip: device.ipAddress, mac: macAddress)
+                
+                let resolvedDNS = self.getHostName(for: device.ipAddress, timeout: 0.6)
+                let hostName = self.rememberedHostName(ip: device.ipAddress, mac: macAddress)
+                    ?? self.usefulHostName(resolvedDNS)
+                    ?? self.usefulHostName(cached?.hostName)
+                    ?? self.usefulHostName(device.hostName)
+                    ?? "Unknown"
+                
                 if manufacturer.isEmpty || manufacturer == "Unbekannt" {
                     if let cachedManufacturer = cached?.manufacturer, !cachedManufacturer.isEmpty {
                         manufacturer = cachedManufacturer

@@ -106,5 +106,10 @@ enum NetworkConstants {
     
     /// Ports probed during host discovery (any open → host considered reachable).
     static let discoveryPorts: [Int] = [80, 443, 22, 445]
+    #if os(iOS)
+    /// Slightly longer on cellular/Wi‑Fi radios where RTT is higher.
+    static let discoveryTimeout: TimeInterval = 0.45
+    #else
     static let discoveryTimeout: TimeInterval = 0.25
+    #endif
 } 

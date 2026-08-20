@@ -9,6 +9,7 @@ struct DesktopLayout: View {
     @State private var showTableSettings = false
     @State private var showPortEditor = false
     @State private var showOUIDatabaseSettings = false
+    @State private var showUserGuide = false
     @State private var sortOrder = [KeyPathComparator(\DeviceInfo.ipAddress)]
     
     private var fullScanBinding: Binding<Bool> {
@@ -54,6 +55,12 @@ struct DesktopLayout: View {
                     Button(action: { showOUIDatabaseSettings = true }) {
                         Label("OUI-Datenbank", systemImage: "server.rack")
                     }
+                    
+                    Divider()
+                    
+                    Button(action: { showUserGuide = true }) {
+                        Label("Bedienungsanleitung", systemImage: "questionmark.circle")
+                    }
                 } label: {
                     Image(systemName: "gearshape")
                 }
@@ -74,6 +81,12 @@ struct DesktopLayout: View {
         .sheet(isPresented: $showOUIDatabaseSettings) {
             NavigationStack {
                 OUIDatabaseSettingsView(scanner: scanner)
+            }
+        }
+        .sheet(isPresented: $showUserGuide) {
+            NavigationStack {
+                UserGuideView()
+                    .frame(minWidth: 420, minHeight: 480)
             }
         }
     }

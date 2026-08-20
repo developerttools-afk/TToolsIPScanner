@@ -154,6 +154,10 @@ extension NetworkScanner {
             // Return first result (either resolved name or timeout)
             for await result in group {
                 group.cancelAll()
+                // Speichere Ergebnis im Cache
+                if let hostname = result {
+                    await dnsCache.set(hostname, for: ip)
+                }
                 return result
             }
             

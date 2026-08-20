@@ -12,8 +12,21 @@ extension NetworkScanner {
         let ipToScan = baseIP ?? currentNetwork
         scanError = nil
         
+        // Validiere IP-Adresse
         guard IPAddressValidator.isValidIPv4(ipToScan) else {
-            scanError = "Ungültige IP-Adresse: \(ipToScan)"
+            scanError = .invalidIPAddress(ipToScan)
+            return
+        }
+        
+        // Prüfe ob bereits ein Scan läuft
+        guard !isScanning else {
+            scanError = .scanAlreadyRunning
+            return
+        }
+        
+        // Prüfe ob Ports konfiguriert sind
+        guard !customPorts.isEmpty || mode == .fullScan else {
+            scanError = .noPortsSpecified
             return
         }
         

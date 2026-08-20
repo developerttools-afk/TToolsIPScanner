@@ -78,8 +78,6 @@ extension NetworkScanner {
     }
     
     private func saveDeviceAliases() {
-        if let encodedData = try? JSONEncoder().encode(deviceAliases) {
-            UserDefaults.standard.set(encodedData, forKey: deviceAliasesKey)
-        }
+        settings.deviceAliases = deviceAliases
     }
 }

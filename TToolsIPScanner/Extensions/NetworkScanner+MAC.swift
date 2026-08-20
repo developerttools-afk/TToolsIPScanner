@@ -22,7 +22,7 @@ extension NetworkScanner {
         var manufacturer = manufacturerFromOpenPorts(openPorts) ?? "Unbekannt"
         
         if manufacturer == "Unbekannt" {
-            let hostName = (knownHostName ?? getHostName(for: ip))?.lowercased()
+            let hostName = knownHostName?.lowercased()
             if let hostName {
                 if hostName.contains("iphone") || hostName.contains("ipad") || hostName.contains("mac") {
                     manufacturer = "Apple, Inc."

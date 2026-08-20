@@ -65,22 +65,11 @@ class NetworkScanner: ObservableObject {
     // MARK: - Internal Properties
     internal var previousDevices: Set<String> = []
     internal var ouiDatabase: [String: String] = [:]
-<<<<<<< HEAD
     /// Current scan task - used for structured cancellation with async/await
     internal var currentScanTask: Task<Void, Never>?
     /// DNS-Cache für Performance-Optimierung
     internal let dnsCache = DNSCache(validityDuration: 300, maxSize: 1000)
-    
-    // MARK: - UserDefaults Keys
-    internal let customPortsKey = "customPorts"
-    internal let lastScanResultsKey = "lastScanResults"
-    internal let recentNetworksKey = "recentNetworks"
-    internal let deviceAliasesKey = "deviceAliases"
-=======
-    /// Bumped on start/stop so in-flight work can detect cancellation.
-    internal var scanGeneration: Int = 0
     internal let settings: SettingsManager
->>>>>>> origin/cursor/add-settings-manager-50e7
     internal let ouiDatabaseTimestampKey = "ouiDatabaseTimestamp"
     internal let ouiDatabaseValidityDuration: TimeInterval = 7 * 24 * 60 * 60
     

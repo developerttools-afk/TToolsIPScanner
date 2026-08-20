@@ -44,6 +44,18 @@ class NetworkScanner: ObservableObject {
     @Published var isOUIDatabaseValid: Bool = false
     @Published var currentScanPort: Int = 0
     @Published var scanError: ScanError?
+    
+    // MARK: - Internal Properties
+    internal var previousDevices: Set<String> = []
+    internal var ouiDatabase: [String: String] = [:]
+    /// Current scan task - used for structured cancellation with async/await
+    internal var currentScanTask: Task<Void, Never>?
+    /// DNS-Cache für Performance-Optimierung
+    internal let dnsCache = DNSCache(validityDuration: 300, maxSize: 1000)
+    internal let settings: SettingsManager
+    internal let ouiDatabaseTimestampKey = "ouiDatabaseTimestamp"
+    internal let ouiDatabaseValidityDuration: TimeInterval = 7 * 24 * 60 * 60
+    
     @Published var preferredScanMode: ScanMode = .quickScan {
         didSet {
             settings.preferredScanMode = preferredScanMode
@@ -61,17 +73,6 @@ class NetworkScanner: ObservableObject {
             sortDevices()
         }
     }
-    
-    // MARK: - Internal Properties
-    internal var previousDevices: Set<String> = []
-    internal var ouiDatabase: [String: String] = [:]
-    /// Current scan task - used for structured cancellation with async/await
-    internal var currentScanTask: Task<Void, Never>?
-    /// DNS-Cache für Performance-Optimierung
-    internal let dnsCache = DNSCache(validityDuration: 300, maxSize: 1000)
-    internal let settings: SettingsManager
-    internal let ouiDatabaseTimestampKey = "ouiDatabaseTimestamp"
-    internal let ouiDatabaseValidityDuration: TimeInterval = 7 * 24 * 60 * 60
     
     // MARK: - Initialization
     init(settings: SettingsManager = .shared) {

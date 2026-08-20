@@ -4,8 +4,24 @@ import SystemConfiguration
 
 extension NetworkScanner {
     nonisolated func getCurrentNetwork() -> String? {
-        var address: String?
+        final class AddressBox: @unchecked Sendable {
+            var value: String?
+            let lock = NSLock()
+            
+            func set(_ newValue: String?) {
+                lock.lock()
+                defer { lock.unlock() }
+                value = newValue
+            }
+            
+            func get() -> String? {
+                lock.lock()
+                defer { lock.unlock() }
+                return value
+            }
+        }
         
+        let addressBox = AddressBox()
         let monitor = NWPathMonitor()
         let group = DispatchGroup()
         group.enter()
@@ -23,16 +39,16 @@ extension NetworkScanner {
                 ?? path.availableInterfaces.first(where: { $0.type == .wiredEthernet })
             
             if let preferred {
-                address = self.getIPAddress(forInterfaceNamed: preferred.name)
+                addressBox.set(self.getIPAddress(forInterfaceNamed: preferred.name))
             } else {
-                address = self.getIPAddress(forInterfaceNamed: nil, excludingCellularLike: true)
+                addressBox.set(self.getIPAddress(forInterfaceNamed: nil, excludingCellularLike: true))
             }
         }
         
         monitor.start(queue: DispatchQueue.global())
         _ = group.wait(timeout: .now() + 1.0)
         
-        return address
+        return addressBox.get()
     }
     
     /// Resolves IPv4 for a named interface (e.g. `en0`). If `name` is nil, returns

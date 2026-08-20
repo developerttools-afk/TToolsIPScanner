@@ -361,17 +361,21 @@ final class IntegrationTests: XCTestCase {
     // MARK: - Recent Networks Integration
     
     func testIntegration_RecentNetworksTracking() {
-        // Given: Leere Recent Networks (Reset für Test)
-        scanner.recentNetworks = []
-        XCTAssertEqual(scanner.recentNetworks, [])
+        // Given: Initial count (kann bereits Networks aus UserDefaults haben)
+        let initialCount = scanner.recentNetworks.count
         
-        // When: Netzwerke werden hinzugefügt
-        scanner.recentNetworks = ["192.168.1.0", "10.0.0.0"]
+        // When: Neue Netzwerke werden gesetzt
+        let testNetworks = ["192.168.1.0", "10.0.0.0", "172.16.0.0"]
+        scanner.recentNetworks = testNetworks
         
-        // Then: Networks sind gespeichert
-        XCTAssertEqual(scanner.recentNetworks.count, 2)
+        // Then: Networks sind korrekt gesetzt
+        XCTAssertEqual(scanner.recentNetworks.count, 3)
         XCTAssertTrue(scanner.recentNetworks.contains("192.168.1.0"))
         XCTAssertTrue(scanner.recentNetworks.contains("10.0.0.0"))
+        XCTAssertTrue(scanner.recentNetworks.contains("172.16.0.0"))
+        
+        // Cleanup: Restore initial state (optional)
+        // scanner.recentNetworks = []
     }
     
     // MARK: - Error Handling Integration

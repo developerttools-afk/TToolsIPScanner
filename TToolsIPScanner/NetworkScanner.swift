@@ -23,6 +23,7 @@ enum ScanPhase {
 }
 
 // MARK: - NetworkScanner Class
+@MainActor
 class NetworkScanner: ObservableObject {
     // MARK: - Published Properties
     @Published var isScanning = false
@@ -67,8 +68,8 @@ class NetworkScanner: ObservableObject {
     // MARK: - Internal Properties
     internal var previousDevices: Set<String> = []
     internal var ouiDatabase: [String: String] = [:]
-    /// Bumped on start/stop so in-flight work can detect cancellation.
-    internal var scanGeneration: Int = 0
+    /// Current scan task - used for structured cancellation with async/await
+    internal var currentScanTask: Task<Void, Never>?
     
     // MARK: - UserDefaults Keys
     internal let customPortsKey = "customPorts"

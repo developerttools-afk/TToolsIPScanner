@@ -21,65 +21,96 @@ extension NetworkScanner {
         currentNetwork = ipToScan
         updateNetworkRange()
         
-        #if os(iOS) || os(visionOS)
-        // Prompt for Local Network access before BSD TCP probes (TN3179).
-        LocalNetworkAccess.requestIfNeeded()
-        scanGeneration += 1
-        let generation = scanGeneration
-        isScanning = true
-        scanPhase = .scanningNetwork
-        scanProgress = "Lokalen Netzwerkzugriff prüfen…"
-        progressPercentage = 0
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            guard let self, self.isScanActive(generation) else { return }
-            self.beginScanPipeline(ipToScan: ipToScan, mode: mode, generation: generation)
+        // Cancel any existing scan
+        currentScanTask?.cancel()
+        
+        // Start new scan task
+        currentScanTask = Task { [weak self] in
+            guard let self else { return }
+            
+            #if os(iOS) || os(visionOS)
+            // Prompt for Local Network access before BSD TCP probes (TN3179).
+            LocalNetworkAccess.requestIfNeeded()
+            await self.updateScanState(
+                isScanning: true,
+                phase: .scanningNetwork,
+                progress: "Lokalen Netzwerkzugriff prüfen…",
+                percentage: 0
+            )
+            try? await Task.sleep(for: .milliseconds(800))
+            
+            guard !Task.isCancelled else { return }
+            #endif
+            
+            await self.beginScanPipeline(ipToScan: ipToScan, mode: mode)
         }
-        #else
-        scanGeneration += 1
-        beginScanPipeline(ipToScan: ipToScan, mode: mode, generation: scanGeneration)
-        #endif
     }
     
-    private func beginScanPipeline(ipToScan: String, mode: ScanMode, generation: Int) {
-        guard isScanActive(generation) else { return }
+    /// Helper to update scan state on MainActor
+    private func updateScanState(
+        isScanning: Bool? = nil,
+        phase: ScanPhase? = nil,
+        progress: String? = nil,
+        percentage: Double? = nil,
+        currentIP: String? = nil
+    ) async {
+        await MainActor.run {
+            if let isScanning = isScanning { self.isScanning = isScanning }
+            if let phase = phase { self.scanPhase = phase }
+            if let progress = progress { self.scanProgress = progress }
+            if let percentage = percentage { self.progressPercentage = percentage }
+            if let currentIP = currentIP { self.currentScanIP = currentIP }
+        }
+    }
+    
+    private func beginScanPipeline(ipToScan: String, mode: ScanMode) async {
+        guard !Task.isCancelled else { return }
         
-        let components = ipToScan.split(separator: ".")
-        if components.count >= 3 {
-            let baseNetwork = components.dropLast().joined(separator: ".")
-            let network = baseNetwork + ".0"
-            if !recentNetworks.contains(network) {
-                recentNetworks.insert(network, at: 0)
-                if recentNetworks.count > 3 {
-                    recentNetworks.removeLast()
+        await MainActor.run {
+            let components = ipToScan.split(separator: ".")
+            if components.count >= 3 {
+                let baseNetwork = components.dropLast().joined(separator: ".")
+                let network = baseNetwork + ".0"
+                if !self.recentNetworks.contains(network) {
+                    self.recentNetworks.insert(network, at: 0)
+                    if self.recentNetworks.count > 3 {
+                        self.recentNetworks.removeLast()
+                    }
+                    self.saveSettings()
                 }
-                saveSettings()
             }
         }
         
-        let cachedDetails = Dictionary(
-            uniqueKeysWithValues: devices
-                .filter { $0.status != .missing }
-                .map { device in
-                    (device.ipAddress, (
-                        hostName: usefulHostName(device.hostName) ?? "",
-                        macAddress: device.macAddress,
-                        manufacturer: device.manufacturer,
-                        openPorts: device.openPorts
-                    ))
-                }
+        let cachedDetails = await MainActor.run {
+            Dictionary(
+                uniqueKeysWithValues: devices
+                    .filter { $0.status != .missing }
+                    .map { device in
+                        (device.ipAddress, (
+                            hostName: usefulHostName(device.hostName) ?? "",
+                            macAddress: device.macAddress,
+                            manufacturer: device.manufacturer,
+                            openPorts: device.openPorts
+                        ))
+                    }
+            )
+        }
+        
+        await updateScanState(
+            isScanning: true,
+            phase: .scanningNetwork,
+            progress: "Scan gestartet…",
+            percentage: 0
         )
         
-        isScanning = true
-        scanPhase = .scanningNetwork
-        previousDevices = Set(devices.filter { $0.status != .missing }.map { $0.ipAddress })
-        devices = []
-        progressPercentage = 0
-        scanProgress = "Scan gestartet…"
+        await MainActor.run {
+            self.previousDevices = Set(self.devices.filter { $0.status != .missing }.map { $0.ipAddress })
+            self.devices = []
+        }
         
-        startIPScan(
+        await startIPScan(
             baseIP: ipToScan,
             mode: mode,
-            generation: generation,
             cachedDetails: cachedDetails
         )
     }
@@ -87,43 +118,32 @@ extension NetworkScanner {
     private func startIPScan(
         baseIP: String,
         mode: ScanMode,
-        generation: Int,
         cachedDetails: [String: (hostName: String, macAddress: String, manufacturer: String, openPorts: [Int])]
-    ) {
+    ) async {
         let baseIP = baseIP.split(separator: ".").dropLast().joined(separator: ".")
-        let group = DispatchGroup()
         let totalIPs = 254
-        let progress = ProgressCounter()
+        let previousDevices = await MainActor.run { self.previousDevices }
+        
         let discoveryHits = ResolutionStore<String, [Int]>()
         
-        let workerQueue = OperationQueue()
-        workerQueue.name = "com.ttools.ipscanner.ip-workers"
-        workerQueue.qualityOfService = .utility
-        workerQueue.maxConcurrentOperationCount = 12
-        
-        for i in 1...totalIPs {
-            group.enter()
-            workerQueue.addOperation {
-                defer { group.leave() }
-                guard self.isScanActive(generation) else { return }
-                
-                let ip = "\(baseIP).\(i)"
-                DispatchQueue.main.async {
-                    guard self.isScanActive(generation) else { return }
-                    self.currentScanIP = ip
-                }
-                
-                // Phase 1: lightweight discovery only (fixed ports).
-                let foundPorts = self.probeOpenDiscoveryPorts(ip)
-                if !foundPorts.isEmpty {
-                    discoveryHits.set(foundPorts, for: ip)
-                    let status = DeviceStatusResolver.status(for: ip, previousIPs: self.previousDevices)
-                    let cached = cachedDetails[ip]
-                    let remembered = self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
+        // Use TaskGroup for structured concurrency
+        await withTaskGroup(of: (Int, String, [Int]?, DeviceInfo?).self) { group in
+            for i in 1...totalIPs {
+                group.addTask {
+                    guard !Task.isCancelled else { return (i, "", nil, nil) }
                     
-                    DispatchQueue.main.async {
-                        guard self.isScanActive(generation) else { return }
-                        let newDevice = DeviceInfo(
+                    let ip = "\(baseIP).\(i)"
+                    
+                    // Phase 1: lightweight discovery only (fixed ports)
+                    let foundPorts = self.probeOpenDiscoveryPorts(ip)
+                    
+                    var newDevice: DeviceInfo?
+                    if !foundPorts.isEmpty {
+                        let status = DeviceStatusResolver.status(for: ip, previousIPs: previousDevices)
+                        let cached = cachedDetails[ip]
+                        let remembered = await self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
+                        
+                        newDevice = DeviceInfo(
                             id: UUID(),
                             ipAddress: ip,
                             hostName: remembered
@@ -135,146 +155,159 @@ extension NetworkScanner {
                             status: status,
                             isExpanded: false
                         )
-                        self.devices = self.devices + [newDevice]
+                    }
+                    
+                    return (i, ip, foundPorts.isEmpty ? nil : foundPorts, newDevice)
+                }
+            }
+            
+            var completedCount = 0
+            for await (_, ip, foundPorts, device) in group {
+                guard !Task.isCancelled else { break }
+                
+                if let foundPorts = foundPorts {
+                    discoveryHits.set(foundPorts, for: ip)
+                }
+                
+                if let device = device {
+                    await MainActor.run {
+                        self.devices.append(device)
                         self.scanProgress = "IP gefunden: \(ip)"
                     }
                 }
                 
-                let count = progress.increment()
-                DispatchQueue.main.async {
-                    guard self.isScanActive(generation) else { return }
-                    self.progressPercentage = Double(count) * 100.0 / Double(totalIPs)
-                }
+                completedCount += 1
+                await updateScanState(percentage: Double(completedCount) * 100.0 / Double(totalIPs))
             }
         }
         
-        group.notify(queue: .main) {
-            guard self.isScanActive(generation) else { return }
-            self.scanProgress = "Hosts gefunden: \(self.devices.count) — starte Custom-Port-Scan…"
-            self.progressPercentage = 0
-            self.scanPhase = .scanningPorts
-            self.resolveAndScanDevices(
-                mode: mode,
-                generation: generation,
-                cachedDetails: cachedDetails,
-                discoveryPorts: discoveryHits.snapshot()
-            )
-        }
+        guard !Task.isCancelled else { return }
+        
+        let deviceCount = await MainActor.run { self.devices.count }
+        await updateScanState(
+            phase: .scanningPorts,
+            progress: "Hosts gefunden: \(deviceCount) — starte Custom-Port-Scan…",
+            percentage: 0
+        )
+        
+        await resolveAndScanDevices(
+            mode: mode,
+            cachedDetails: cachedDetails,
+            discoveryPorts: discoveryHits.snapshot()
+        )
     }
     
     /// Phase 2: custom/full port scan on found hosts, then hostname/MAC.
     private func resolveAndScanDevices(
         mode: ScanMode,
-        generation: Int,
         cachedDetails: [String: (hostName: String, macAddress: String, manufacturer: String, openPorts: [Int])],
         discoveryPorts: [String: [Int]]
-    ) {
-        let snapshot = devices
+    ) async {
+        let snapshot = await MainActor.run { self.devices }
         guard !snapshot.isEmpty else {
-            finishScan(generation: generation, devices: devices)
+            await finishScan(devices: snapshot)
             return
         }
         
         let totalDevices = snapshot.count
-        let progress = ProgressCounter()
-        let resolutions = ResolutionStore<UUID, DeviceResolution>()
-        let group = DispatchGroup()
         let portsToProbe = portsForScan(mode)
+        let resolutions = ResolutionStore<UUID, DeviceResolution>()
         
-        let workerQueue = OperationQueue()
-        workerQueue.name = "com.ttools.ipscanner.device-workers"
-        workerQueue.qualityOfService = .utility
-        workerQueue.maxConcurrentOperationCount = 4
-        
-        for device in snapshot {
-            group.enter()
-            workerQueue.addOperation {
-                defer {
-                    let completed = progress.increment()
-                    group.leave()
-                    DispatchQueue.main.async {
-                        guard self.isScanActive(generation) else { return }
-                        self.progressPercentage = (Double(completed) / Double(totalDevices)) * 100
-                        self.scanProgress = "Port-Scan: \(completed)/\(totalDevices)"
-                        self.currentScanIP = device.ipAddress
+        // Use TaskGroup for parallel device resolution
+        await withTaskGroup(of: (UUID, Int, DeviceResolution).self) { group in
+            for (index, device) in snapshot.enumerated() {
+                group.addTask {
+                    guard !Task.isCancelled else {
+                        return (device.id, index, DeviceResolution(
+                            hostName: device.hostName,
+                            macAddress: device.macAddress,
+                            manufacturer: device.manufacturer,
+                            openPorts: device.openPorts
+                        ))
                     }
-                }
-                
-                guard self.isScanActive(generation) else { return }
-                
-                let probed = discoveryPorts[device.ipAddress] ?? device.openPorts
-                let scanned = self.probeOpenPorts(
-                    device.ipAddress,
-                    ports: portsToProbe,
-                    timeout: 0.5
-                )
-                let openPorts = Array(Set(probed + scanned)).sorted()
-                
-                DispatchQueue.main.async {
-                    guard self.isScanActive(generation) else { return }
-                    self.updateDevice(id: device.id) { item in
-                        item.openPorts = openPorts
+                    
+                    let probed = discoveryPorts[device.ipAddress] ?? device.openPorts
+                    let scanned = self.probeOpenPorts(
+                        device.ipAddress,
+                        ports: portsToProbe,
+                        timeout: 0.5
+                    )
+                    let openPorts = Array(Set(probed + scanned)).sorted()
+                    
+                    // Update device with open ports on main thread
+                    await MainActor.run {
+                        self.updateDevice(id: device.id) { item in
+                            item.openPorts = openPorts
+                        }
                     }
-                }
-                
-                guard self.isScanActive(generation) else {
-                    resolutions.set(
-                        DeviceResolution(
+                    
+                    guard !Task.isCancelled else {
+                        return (device.id, index, DeviceResolution(
                             hostName: device.hostName,
                             macAddress: device.macAddress,
                             manufacturer: device.manufacturer,
                             openPorts: openPorts
-                        ),
-                        for: device.id
-                    )
-                    return
-                }
-                
-                let cached = cachedDetails[device.ipAddress]
-                var (macAddress, manufacturer) = self.getMacAddress(
-                    for: device.ipAddress,
-                    openPorts: openPorts,
-                    knownHostName: device.hostName
-                )
-                if macAddress.isEmpty {
-                    macAddress = cached?.macAddress ?? device.macAddress
-                }
-                self.migrateAliasIfNeeded(ip: device.ipAddress, mac: macAddress)
-                
-                let resolvedDNS = self.getHostName(for: device.ipAddress, timeout: 0.6)
-                let hostName = self.rememberedHostName(ip: device.ipAddress, mac: macAddress)
-                    ?? self.usefulHostName(resolvedDNS)
-                    ?? self.usefulHostName(cached?.hostName)
-                    ?? self.usefulHostName(device.hostName)
-                    ?? "Unknown"
-                
-                if manufacturer.isEmpty || manufacturer == "Unbekannt" {
-                    if let cachedManufacturer = cached?.manufacturer, !cachedManufacturer.isEmpty {
-                        manufacturer = cachedManufacturer
-                    } else if !device.manufacturer.isEmpty {
-                        manufacturer = device.manufacturer
-                    } else if let portBased = self.getManufacturerFromPortScan(openPorts: openPorts) {
-                        manufacturer = portBased
+                        ))
                     }
-                }
-                
-                resolutions.set(
-                    DeviceResolution(
+                    
+                    let cached = cachedDetails[device.ipAddress]
+                    var (macAddress, manufacturer) = self.getMacAddress(
+                        for: device.ipAddress,
+                        openPorts: openPorts,
+                        knownHostName: device.hostName
+                    )
+                    if macAddress.isEmpty {
+                        macAddress = cached?.macAddress ?? device.macAddress
+                    }
+                    await self.migrateAliasIfNeeded(ip: device.ipAddress, mac: macAddress)
+                    
+                    let resolvedDNS = await self.getHostName(for: device.ipAddress, timeout: 0.6)
+                    let hostName = await self.rememberedHostName(ip: device.ipAddress, mac: macAddress)
+                        ?? self.usefulHostName(resolvedDNS)
+                        ?? self.usefulHostName(cached?.hostName)
+                        ?? self.usefulHostName(device.hostName)
+                        ?? "Unknown"
+                    
+                    if manufacturer.isEmpty || manufacturer == "Unbekannt" {
+                        if let cachedManufacturer = cached?.manufacturer, !cachedManufacturer.isEmpty {
+                            manufacturer = cachedManufacturer
+                        } else if !device.manufacturer.isEmpty {
+                            manufacturer = device.manufacturer
+                        } else if let portBased = self.getManufacturerFromPortScan(openPorts: openPorts) {
+                            manufacturer = portBased
+                        }
+                    }
+                    
+                    return (device.id, index, DeviceResolution(
                         hostName: hostName,
                         macAddress: macAddress,
                         manufacturer: manufacturer,
                         openPorts: openPorts
-                    ),
-                    for: device.id
+                    ))
+                }
+            }
+            
+            var completedCount = 0
+            for await (deviceId, _, resolution) in group {
+                guard !Task.isCancelled else { break }
+                
+                resolutions.set(resolution, for: deviceId)
+                completedCount += 1
+                
+                await updateScanState(
+                    progress: "Port-Scan: \(completedCount)/\(totalDevices)",
+                    percentage: (Double(completedCount) / Double(totalDevices)) * 100
                 )
             }
         }
         
-        group.notify(queue: .main) {
-            guard self.isScanActive(generation) else { return }
-            
-            let resolved = resolutions.snapshot()
-            var updatedDevices = self.devices.map { device -> DeviceInfo in
+        guard !Task.isCancelled else { return }
+        
+        let resolved = resolutions.snapshot()
+        let previousDevices = await MainActor.run { self.previousDevices }
+        
+        var updatedDevices = await MainActor.run {
+            self.devices.map { device -> DeviceInfo in
                 guard let resolution = resolved[device.id] else { return device }
                 var copy = device
                 copy.hostName = resolution.hostName
@@ -283,38 +316,41 @@ extension NetworkScanner {
                 copy.openPorts = resolution.openPorts.isEmpty ? device.openPorts : resolution.openPorts
                 return copy
             }
-            
-            let foundIPs = Set(updatedDevices.map(\.ipAddress))
-            let missingIPs = DeviceStatusResolver.missingIPs(
-                previousIPs: self.previousDevices,
-                foundIPs: foundIPs
-            )
-            for ip in missingIPs {
-                updatedDevices.append(DeviceInfo(
-                    id: UUID(),
-                    ipAddress: ip,
-                    hostName: "Nicht mehr verfügbar",
-                    macAddress: cachedDetails[ip]?.macAddress ?? "",
-                    manufacturer: cachedDetails[ip]?.manufacturer ?? "",
-                    openPorts: [],
-                    status: .missing,
-                    isExpanded: false
-                ))
-            }
-            
-            self.finishScan(generation: generation, devices: updatedDevices)
         }
+        
+        let foundIPs = Set(updatedDevices.map(\.ipAddress))
+        let missingIPs = DeviceStatusResolver.missingIPs(
+            previousIPs: previousDevices,
+            foundIPs: foundIPs
+        )
+        for ip in missingIPs {
+            updatedDevices.append(DeviceInfo(
+                id: UUID(),
+                ipAddress: ip,
+                hostName: "Nicht mehr verfügbar",
+                macAddress: cachedDetails[ip]?.macAddress ?? "",
+                manufacturer: cachedDetails[ip]?.manufacturer ?? "",
+                openPorts: [],
+                status: .missing,
+                isExpanded: false
+            ))
+        }
+        
+        await finishScan(devices: updatedDevices)
     }
     
-    private func finishScan(generation: Int, devices updatedDevices: [DeviceInfo]) {
-        guard isScanActive(generation) else { return }
-        devices = updatedDevices
-        sortDevices()
-        scanProgress = "Scan abgeschlossen"
-        progressPercentage = 100
-        scanPhase = .finished
-        isScanning = false
-        saveSettings()
+    private func finishScan(devices updatedDevices: [DeviceInfo]) async {
+        guard !Task.isCancelled else { return }
+        
+        await MainActor.run {
+            self.devices = updatedDevices
+            self.sortDevices()
+            self.scanProgress = "Scan abgeschlossen"
+            self.progressPercentage = 100
+            self.scanPhase = .finished
+            self.isScanning = false
+            self.saveSettings()
+        }
     }
     
     private func updateDevice(id: UUID, mutate: (inout DeviceInfo) -> Void) {
@@ -326,6 +362,7 @@ extension NetworkScanner {
     
     /// Ports for phase-2 custom/full scan on discovered hosts.
     private func portsForScan(_ mode: ScanMode) -> [Int] {
+        let customPorts = self.customPorts
         switch mode {
         case .quickScan:
             let ports = customPorts.isEmpty ? NetworkConstants.defaultPorts : customPorts
@@ -339,17 +376,14 @@ extension NetworkScanner {
     }
     
     func stopScan() {
-        scanGeneration += 1
+        currentScanTask?.cancel()
+        currentScanTask = nil
         isScanning = false
         scanPhase = .idle
         progressPercentage = 0
         scanProgress = "Scan abgebrochen"
         currentScanIP = ""
         saveSettings()
-    }
-    
-    private func isScanActive(_ generation: Int) -> Bool {
-        generation == scanGeneration
     }
     
     private func usefulHostName(_ name: String?) -> String? {
@@ -365,20 +399,7 @@ extension NetworkScanner {
     }
 }
 
-/// Thread-safe counter used for scan progress.
-private final class ProgressCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = 0
-    
-    func increment() -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        value += 1
-        return value
-    }
-}
-
-/// Thread-safe dictionary — avoids Swift `var` capture races across OperationQueue jobs.
+/// Thread-safe dictionary for storing intermediate scan results
 private final class ResolutionStore<Key: Hashable, Value>: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [Key: Value] = [:]

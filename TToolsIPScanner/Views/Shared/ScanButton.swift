@@ -8,6 +8,7 @@ struct ScanButton: View {
             if scanner.isScanning {
                 scanner.stopScan()
             } else {
+                // Start scan asynchronously
                 scanner.startScan(
                     baseIP: scanner.currentNetwork,
                     mode: scanner.preferredScanMode

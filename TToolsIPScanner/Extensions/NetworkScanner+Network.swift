@@ -98,53 +98,52 @@ extension NetworkScanner {
         }
     }
     
-    /// Reverse-DNS lookup with timeout on a matching utility QoS queue.
-    internal func getHostName(for ip: String, timeout: TimeInterval = 0.8) -> String? {
-        let lock = NSLock()
-        var resolvedName: String?
-        let group = DispatchGroup()
-        let queue = DispatchQueue(label: "com.ttools.ipscanner.dns", qos: .utility)
-        
-        group.enter()
-        queue.async {
-            defer { group.leave() }
-            
-            var hints = addrinfo()
-            hints.ai_family = AF_INET
-            hints.ai_socktype = SOCK_STREAM
-            hints.ai_flags = AI_NUMERICHOST
-            
-            var result: UnsafeMutablePointer<addrinfo>?
-            guard getaddrinfo(ip, nil, &hints, &result) == 0, let info = result else {
-                return
+    /// Reverse-DNS lookup with timeout using async/await
+    internal func getHostName(for ip: String, timeout: TimeInterval = 0.8) async -> String? {
+        await withTaskGroup(of: String?.self) { group in
+            group.addTask {
+                var hints = addrinfo()
+                hints.ai_family = AF_INET
+                hints.ai_socktype = SOCK_STREAM
+                hints.ai_flags = AI_NUMERICHOST
+                
+                var result: UnsafeMutablePointer<addrinfo>?
+                guard getaddrinfo(ip, nil, &hints, &result) == 0, let info = result else {
+                    return nil
+                }
+                defer { freeaddrinfo(info) }
+                guard let addr = info.pointee.ai_addr else { return nil }
+                
+                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                let status = getnameinfo(
+                    addr,
+                    info.pointee.ai_addrlen,
+                    &hostname,
+                    socklen_t(hostname.count),
+                    nil,
+                    0,
+                    NI_NAMEREQD
+                )
+                guard status == 0 else { return nil }
+                
+                let name = String(cString: hostname)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return name.isEmpty ? nil : name
             }
-            defer { freeaddrinfo(info) }
-            guard let addr = info.pointee.ai_addr else { return }
             
-            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-            let status = getnameinfo(
-                addr,
-                info.pointee.ai_addrlen,
-                &hostname,
-                socklen_t(hostname.count),
-                nil,
-                0,
-                NI_NAMEREQD
-            )
-            guard status == 0 else { return }
+            // Add timeout task
+            group.addTask {
+                try? await Task.sleep(for: .seconds(timeout))
+                return nil
+            }
             
-            let name = String(cString: hostname)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { return }
+            // Return first result (either resolved name or timeout)
+            for await result in group {
+                group.cancelAll()
+                return result
+            }
             
-            lock.lock()
-            resolvedName = name
-            lock.unlock()
+            return nil
         }
-        
-        _ = group.wait(timeout: .now() + timeout)
-        lock.lock()
-        defer { lock.unlock() }
-        return resolvedName
     }
 }

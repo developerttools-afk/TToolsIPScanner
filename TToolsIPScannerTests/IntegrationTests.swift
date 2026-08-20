@@ -361,7 +361,8 @@ final class IntegrationTests: XCTestCase {
     // MARK: - Recent Networks Integration
     
     func testIntegration_RecentNetworksTracking() {
-        // Given: Initial keine Recent Networks
+        // Given: Leere Recent Networks (Reset für Test)
+        scanner.recentNetworks = []
         XCTAssertEqual(scanner.recentNetworks, [])
         
         // When: Netzwerke werden hinzugefügt

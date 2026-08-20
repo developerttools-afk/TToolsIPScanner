@@ -61,7 +61,19 @@ extension NetworkScanner {
             
             if let error = error {
                 DispatchQueue.main.async {
+                    self.scanError = .ouiDatabaseLoadFailed(underlying: error)
                     self.log("Fehler beim Download: \(error.localizedDescription)")
+                    self.isUpdatingOUI = false
+                }
+                return
+            }
+            
+            // Prüfe HTTP-Statuscode
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200...299).contains(httpResponse.statusCode) {
+                DispatchQueue.main.async {
+                    self.scanError = .ouiDatabaseDownloadFailed(statusCode: httpResponse.statusCode)
+                    self.log("HTTP-Fehler: \(httpResponse.statusCode)")
                     self.isUpdatingOUI = false
                 }
                 return
@@ -70,6 +82,7 @@ extension NetworkScanner {
             guard let data = data,
                   let content = String(data: data, encoding: .utf8) else {
                 DispatchQueue.main.async {
+                    self.scanError = .ouiDatabaseCorrupted
                     self.log("Keine Daten empfangen")
                     self.isUpdatingOUI = false
                 }

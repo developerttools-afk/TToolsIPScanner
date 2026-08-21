@@ -70,7 +70,7 @@ struct UserGuideView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     
-                    Text("• Weitere Informationen findest du unter „Über diese App" im Einstellungsmenü.")
+                    Text("• Weitere Informationen findest du unter 'Über diese App' im Einstellungsmenü.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

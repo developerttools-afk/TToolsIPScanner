@@ -57,29 +57,23 @@ extension NetworkScanner {
     }
     
     /// Hostname shown / stored: user alias wins over DNS / cache.
-    func rememberedHostName(ip: String, mac: String = "") async -> String? {
-        await MainActor.run {
-            let name = self.rememberedAlias(ip: ip, mac: mac)?.customName
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let name, !name.isEmpty else { return nil }
-            return name
-        }
+    func rememberedHostName(ip: String, mac: String = "") -> String? {
+        let name = rememberedAlias(ip: ip, mac: mac)?.customName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let name, !name.isEmpty else { return nil }
+        return name
     }
     
     /// After MAC is discovered, copy IP-based alias onto the MAC key.
-    func migrateAliasIfNeeded(ip: String, mac: String) async {
-        await MainActor.run {
-            guard !mac.isEmpty else { return }
-            if self.deviceAliases[mac] != nil { return }
-            guard let alias = self.deviceAliases[ip] else { return }
-            self.deviceAliases[mac] = alias
-            self.saveDeviceAliases()
-        }
+    func migrateAliasIfNeeded(ip: String, mac: String) {
+        guard !mac.isEmpty else { return }
+        if deviceAliases[mac] != nil { return }
+        guard let alias = deviceAliases[ip] else { return }
+        deviceAliases[mac] = alias
+        saveDeviceAliases()
     }
     
     private func saveDeviceAliases() {
-        if let encodedData = try? JSONEncoder().encode(deviceAliases) {
-            UserDefaults.standard.set(encodedData, forKey: deviceAliasesKey)
-        }
+        settings.deviceAliases = deviceAliases
     }
 }

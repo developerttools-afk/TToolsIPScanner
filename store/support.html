@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support | TTools IP Scanner</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            color: #333;
+        }
+        h1 { color: #007AFF; border-bottom: 2px solid #007AFF; padding-bottom: 10px; }
+        h2 { color: #555; margin-top: 30px; }
+        h3 { color: #666; margin-top: 20px; }
+        .language-switch { text-align: right; margin-bottom: 20px; }
+        .language-switch a { color: #007AFF; text-decoration: none; margin: 0 5px; }
+        .highlight { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+        .info-box { background-color: #f0f8ff; padding: 15px; border-left: 4px solid #007AFF; margin: 20px 0; }
+        footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; }
+        footer a { color: #007AFF; text-decoration: none; }
+        ul { padding-left: 20px; }
+        li { margin: 8px 0; }
+        .support-box {
+            background-color: #e7f5ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "Monaco", "Courier New", monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="language-switch">
+        <a href="#de">Deutsch</a> | <a href="#en">English</a>
+    </div>
+
+    <!-- DEUTSCH -->
+    <div id="de">
+        <h1>Support & Hilfe</h1>
+        <p><strong>TTools IP Scanner</strong> | Version 1.21 | Stand: 21. August 2026</p>
+
+        <div class="highlight">
+            <strong>Wichtiger Hinweis:</strong> Dies ist ein <strong>privates Hobbyprojekt</strong> ohne kommerzielle Unterstützung. Support erfolgt nach bestem Wissen, aber ohne Garantie oder Anspruch auf Antwort.
+        </div>
+
+        <div class="support-box">
+            <h3>📧 Kontakt</h3>
+            <p><strong>E-Mail:</strong> <a href="mailto:developerttools@gmail.com">developerttools@gmail.com</a></p>
+            <p><strong>Antwortzeit:</strong> Normalerweise innerhalb von 1-7 Tagen (keine Garantie)</p>
+        </div>
+
+        <h2>Häufig gestellte Fragen (FAQ)</h2>
+
+        <h3>1. Wie starte ich einen Scan?</h3>
+        <ol>
+            <li>Gib deine Netzwerk-IP ein (z.B. <code>192.168.1.0</code>) oder wähle aus "Zuletzt gescannt"</li>
+            <li>Optional: Aktiviere "Vollständiger Port-Scan" für erweiterte Port-Liste</li>
+            <li>Tippe auf "Scan starten"</li>
+            <li>Beim ersten Mal: Erlaube "Lokales Netzwerk" (iOS)</li>
+        </ol>
+
+        <h3>2. Warum werden keine Geräte gefunden?</h3>
+        <p><strong>Mögliche Ursachen:</strong></p>
+        <ul>
+            <li>❌ <strong>Lokales Netzwerk</strong> nicht erlaubt → iOS-Einstellungen → TTools IP Scanner → Lokales Netzwerk</li>
+            <li>❌ Falsche Netzwerk-IP → Prüfe deine Router-Einstellungen (z.B. 192.168.1.0 oder 10.0.0.0)</li>
+            <li>❌ Firewall blockiert Scan → Prüfe Netzwerk-Einstellungen</li>
+            <li>❌ Keine Geräte im Netzwerk aktiv</li>
+        </ul>
+
+        <h3>3. Wie funktioniert die OUI-Datenbank?</h3>
+        <p>Die OUI-Datenbank (Organizationally Unique Identifier) ordnet MAC-Adressen Herstellern zu:</p>
+        <ul>
+            <li><strong>Lokal vorhanden:</strong> App enthält eine Basis-Datenbank</li>
+            <li><strong>Update:</strong> Einstellungen → OUI-Datenbank → "OUI-Liste aktualisieren"</li>
+            <li><strong>Quelle:</strong> IEEE Standards Association (öffentlich verfügbar)</li>
+        </ul>
+
+        <h3>4. Was ist der DNS-Cache?</h3>
+        <p>Der DNS-Cache speichert Hostname-Auflösungen zwischen, um wiederholte Scans zu beschleunigen:</p>
+        <ul>
+            <li><strong>Anzeigen:</strong> Einstellungen → DNS-Cache → Statistiken</li>
+            <li><strong>Löschen:</strong> "Cache leeren"</li>
+            <li><strong>Gültigkeit:</strong> 5 Minuten pro Eintrag</li>
+        </ul>
+
+        <h3>5. Wie bearbeite ich Gerätenamen?</h3>
+        <ul>
+            <li><strong>iOS:</strong> Gerät antippen → Details → "Hostname-Alias bearbeiten"</li>
+            <li><strong>macOS:</strong> Gerätenamen direkt in der Tabelle antippen</li>
+            <li>Aliase überschreiben Scan-Hostnamen und bleiben gespeichert</li>
+        </ul>
+
+        <h3>6. Was ist der Unterschied zwischen Quick & Full Scan?</h3>
+        <ul>
+            <li><strong>Quick Scan:</strong> Nur deine Custom-Ports (Standard: 21, 22, 80, 443)</li>
+            <li><strong>Full Scan:</strong> Custom-Ports + erweiterte Standard-Port-Liste</li>
+            <li><strong>Einstellung:</strong> Ports-Editor → Eigene Ports definieren</li>
+        </ul>
+
+        <h3>7. Warum werden MAC-Adressen nicht angezeigt?</h3>
+        <ul>
+            <li><strong>macOS:</strong> MAC-Adressen werden über ARP-Tabelle abgerufen (funktioniert meistens)</li>
+            <li><strong>iOS:</strong> Keine direkte MAC-Erkennung möglich → Heuristik über Ports/Hostnamen</li>
+            <li>Manche Geräte verbergen ihre MAC-Adresse</li>
+        </ul>
+
+        <h3>8. Ist die App sicher?</h3>
+        <p><strong>Ja, aber:</strong></p>
+        <ul>
+            <li>✅ Alle Daten bleiben auf deinem Gerät</li>
+            <li>✅ Keine Cloud-Synchronisation</li>
+            <li>✅ Kein Backend oder externe Server</li>
+            <li>✅ Keine Analytics oder Tracking</li>
+            <li>⚠️ Scanne nur Netzwerke, für die du berechtigt bist!</li>
+        </ul>
+
+        <h3>9. Kann ich die App im App Store bewerten?</h3>
+        <p>Ja, gerne! Feedback hilft anderen Nutzern. Bitte beachte:</p>
+        <ul>
+            <li>Dies ist ein Hobbyprojekt ohne Support-Garantie</li>
+            <li>Feature-Wünsche sind willkommen, aber keine Garantie auf Umsetzung</li>
+        </ul>
+
+        <h3>10. Wie kann ich das Projekt unterstützen?</h3>
+        <p>Falls dir die App gefällt:</p>
+        <ul>
+            <li>☕ <strong>Buy Me a Coffee:</strong> <a href="https://buymeacoffee.com/developerttools" target="_blank">buymeacoffee.com/developerttools</a></li>
+            <li>⭐ <strong>Bewertung im App Store</strong></li>
+            <li>📧 <strong>Feedback senden</strong></li>
+        </ul>
+        <p><em>Spenden sind freiwillig und haben keinen Einfluss auf die Funktionalität!</em></p>
+
+        <h2>Bekannte Einschränkungen</h2>
+        <ul>
+            <li>iOS: MAC-Adressen nur über Heuristik erkennbar</li>
+            <li>Full-Scan kann auf großen Netzwerken einige Minuten dauern</li>
+            <li>Manche Router blocken Port-Scans (Firewall)</li>
+        </ul>
+
+        <h2>Systemanforderungen</h2>
+        <ul>
+            <li><strong>iOS:</strong> 17.0 oder neuer</li>
+            <li><strong>macOS:</strong> 14.0 oder neuer</li>
+            <li><strong>Geräte:</strong> iPhone, iPad, Mac (Universal-App)</li>
+        </ul>
+
+        <h2>Rechtliche Hinweise</h2>
+        
+        <div class="info-box">
+            <h3>⚠️ Hobbyprojekt – Keine Gewährleistung</h3>
+            <p>Diese App wurde als privates Hobbyprojekt entwickelt und wird kostenlos zur Verfügung gestellt. Es gibt:</p>
+            <ul>
+                <li>❌ Keine Gewährleistung oder Garantie</li>
+                <li>❌ Keine Garantie für Fehlerfreiheit</li>
+                <li>❌ Keine Garantie für Weiterentwicklung</li>
+                <li>❌ Keinen kommerziellen Support</li>
+            </ul>
+            <p><strong>Nutzung vollständig auf eigene Gefahr!</strong></p>
+        </div>
+
+        <h3>Netzwerk-Scanning</h3>
+        <p>Port-Scanning kann in manchen Jurisdiktionen rechtlich problematisch sein. <strong>Scanne nur Netzwerke, für die du berechtigt bist!</strong> Der Entwickler übernimmt keine Haftung für Missbrauch.</p>
+
+        <h2>Weitere Ressourcen</h2>
+        <ul>
+            <li><a href="privacy.html">Datenschutzerklärung</a></li>
+            <li><a href="impressum.html">Impressum</a></li>
+            <li><a href="https://github.com/developerttools-afk/TToolsIPScanner" target="_blank">GitHub Repository</a> (falls öffentlich)</li>
+        </ul>
+
+        <footer>
+            <p>
+                <a href="privacy.html">Datenschutz</a> | 
+                <a href="impressum.html">Impressum</a> | 
+                © 2026 Thorsten Albers
+            </p>
+        </footer>
+    </div>
+
+    <!-- ENGLISH -->
+    <div id="en" style="margin-top: 80px;">
+        <h1>Support & Help</h1>
+        <p><strong>TTools IP Scanner</strong> | Version 1.21 | Last updated: August 21, 2026</p>
+
+        <div class="highlight">
+            <strong>Important Notice:</strong> This is a <strong>private hobby project</strong> without commercial support. Support is provided to the best of my knowledge, but without guarantee or entitlement to a reply.
+        </div>
+
+        <div class="support-box">
+            <h3>📧 Contact</h3>
+            <p><strong>Email:</strong> <a href="mailto:developerttools@gmail.com">developerttools@gmail.com</a></p>
+            <p><strong>Response time:</strong> Usually within 1-7 days (no guarantee)</p>
+        </div>
+
+        <h2>Frequently Asked Questions (FAQ)</h2>
+
+        <h3>1. How do I start a scan?</h3>
+        <ol>
+            <li>Enter your network IP (e.g., <code>192.168.1.0</code>) or select from "Recently scanned"</li>
+            <li>Optional: Enable "Full Port Scan" for extended port list</li>
+            <li>Tap "Start Scan"</li>
+            <li>First time: Allow "Local Network" (iOS)</li>
+        </ol>
+
+        <h3>2. Why are no devices found?</h3>
+        <p><strong>Possible causes:</strong></p>
+        <ul>
+            <li>❌ <strong>Local Network</strong> not allowed → iOS Settings → TTools IP Scanner → Local Network</li>
+            <li>❌ Wrong network IP → Check your router settings (e.g., 192.168.1.0 or 10.0.0.0)</li>
+            <li>❌ Firewall blocking scan → Check network settings</li>
+            <li>❌ No active devices on network</li>
+        </ul>
+
+        <h3>3. How does the OUI database work?</h3>
+        <p>The OUI database (Organizationally Unique Identifier) maps MAC addresses to manufacturers:</p>
+        <ul>
+            <li><strong>Locally included:</strong> App contains a base database</li>
+            <li><strong>Update:</strong> Settings → OUI Database → "Update OUI List"</li>
+            <li><strong>Source:</strong> IEEE Standards Association (publicly available)</li>
+        </ul>
+
+        <h3>4. What is the DNS cache?</h3>
+        <p>The DNS cache stores hostname resolutions to speed up repeated scans:</p>
+        <ul>
+            <li><strong>View:</strong> Settings → DNS Cache → Statistics</li>
+            <li><strong>Clear:</strong> "Clear Cache"</li>
+            <li><strong>Validity:</strong> 5 minutes per entry</li>
+        </ul>
+
+        <h3>5. How do I edit device names?</h3>
+        <ul>
+            <li><strong>iOS:</strong> Tap device → Details → "Edit Hostname Alias"</li>
+            <li><strong>macOS:</strong> Tap device name directly in table</li>
+            <li>Aliases override scan hostnames and are saved</li>
+        </ul>
+
+        <h3>6. What's the difference between Quick & Full Scan?</h3>
+        <ul>
+            <li><strong>Quick Scan:</strong> Only your custom ports (default: 21, 22, 80, 443)</li>
+            <li><strong>Full Scan:</strong> Custom ports + extended standard port list</li>
+            <li><strong>Settings:</strong> Port Editor → Define custom ports</li>
+        </ul>
+
+        <h3>7. Why are MAC addresses not shown?</h3>
+        <ul>
+            <li><strong>macOS:</strong> MAC addresses retrieved via ARP table (usually works)</li>
+            <li><strong>iOS:</strong> No direct MAC detection possible → Heuristics via ports/hostnames</li>
+            <li>Some devices hide their MAC address</li>
+        </ul>
+
+        <h3>8. Is the app safe?</h3>
+        <p><strong>Yes, but:</strong></p>
+        <ul>
+            <li>✅ All data stays on your device</li>
+            <li>✅ No cloud sync</li>
+            <li>✅ No backend or external servers</li>
+            <li>✅ No analytics or tracking</li>
+            <li>⚠️ Only scan networks you're authorized to access!</li>
+        </ul>
+
+        <h3>9. Can I rate the app on the App Store?</h3>
+        <p>Yes, please do! Feedback helps other users. Please note:</p>
+        <ul>
+            <li>This is a hobby project without support guarantee</li>
+            <li>Feature requests are welcome, but no guarantee of implementation</li>
+        </ul>
+
+        <h3>10. How can I support the project?</h3>
+        <p>If you like the app:</p>
+        <ul>
+            <li>☕ <strong>Buy Me a Coffee:</strong> <a href="https://buymeacoffee.com/developerttools" target="_blank">buymeacoffee.com/developerttools</a></li>
+            <li>⭐ <strong>Rate on App Store</strong></li>
+            <li>📧 <strong>Send feedback</strong></li>
+        </ul>
+        <p><em>Donations are voluntary and have no impact on functionality!</em></p>
+
+        <h2>Known Limitations</h2>
+        <ul>
+            <li>iOS: MAC addresses only detectable via heuristics</li>
+            <li>Full scan can take several minutes on large networks</li>
+            <li>Some routers block port scans (firewall)</li>
+        </ul>
+
+        <h2>System Requirements</h2>
+        <ul>
+            <li><strong>iOS:</strong> 17.0 or newer</li>
+            <li><strong>macOS:</strong> 14.0 or newer</li>
+            <li><strong>Devices:</strong> iPhone, iPad, Mac (Universal app)</li>
+        </ul>
+
+        <h2>Legal Notices</h2>
+        
+        <div class="info-box">
+            <h3>⚠️ Hobby Project – No Warranty</h3>
+            <p>This app was developed as a private hobby project and is provided free of charge. There is:</p>
+            <ul>
+                <li>❌ No warranty or guarantee</li>
+                <li>❌ No guarantee of correctness</li>
+                <li>❌ No guarantee of future updates</li>
+                <li>❌ No commercial support</li>
+            </ul>
+            <p><strong>Use entirely at your own risk!</strong></p>
+        </div>
+
+        <h3>Network Scanning</h3>
+        <p>Port scanning may be legally problematic in some jurisdictions. <strong>Only scan networks you're authorized to access!</strong> The developer assumes no liability for misuse.</p>
+
+        <h2>Additional Resources</h2>
+        <ul>
+            <li><a href="privacy.html">Privacy Policy</a></li>
+            <li><a href="impressum.html">Imprint</a></li>
+            <li><a href="https://github.com/developerttools-afk/TToolsIPScanner" target="_blank">GitHub Repository</a> (if public)</li>
+        </ul>
+
+        <footer>
+            <p>
+                <a href="privacy.html">Privacy</a> | 
+                <a href="impressum.html">Imprint</a> | 
+                © 2026 Thorsten Albers
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

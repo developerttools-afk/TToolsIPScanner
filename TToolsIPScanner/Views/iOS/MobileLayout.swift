@@ -5,7 +5,9 @@ struct MobileLayout: View {
     @ObservedObject var scanner: NetworkScanner
     @State private var showPortEditor = false
     @State private var showOUIDatabaseSettings = false
+    @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
+    @State private var showAbout = false
     
     private var fullScanBinding: Binding<Bool> {
         Binding(
@@ -115,6 +117,10 @@ struct MobileLayout: View {
                             Label("OUI-Datenbank", systemImage: "server.rack")
                         }
                         
+                        Button(action: { showDNSCacheSettings = true }) {
+                            Label("DNS-Cache", systemImage: "memorychip")
+                        }
+                        
                         Divider()
                         
                         Button(action: { scanner.updateOUIDatabase(useFullList: false) }) {
@@ -129,6 +135,10 @@ struct MobileLayout: View {
                         
                         Button(action: { showUserGuide = true }) {
                             Label("Bedienungsanleitung", systemImage: "questionmark.circle")
+                        }
+                        
+                        Button(action: { showAbout = true }) {
+                            Label("Über diese App", systemImage: "info.circle")
                         }
                     } label: {
                         Image(systemName: "gearshape")
@@ -147,9 +157,19 @@ struct MobileLayout: View {
                     OUIDatabaseSettingsView(scanner: scanner)
                 }
             }
+            .sheet(isPresented: $showDNSCacheSettings) {
+                NavigationStack {
+                    DNSCacheSettingsView(scanner: scanner)
+                }
+            }
             .sheet(isPresented: $showUserGuide) {
                 NavigationStack {
                     UserGuideView()
+                }
+            }
+            .sheet(isPresented: $showAbout) {
+                NavigationStack {
+                    AboutView()
                 }
             }
         }

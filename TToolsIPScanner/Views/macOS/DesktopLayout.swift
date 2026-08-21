@@ -9,7 +9,9 @@ struct DesktopLayout: View {
     @State private var showTableSettings = false
     @State private var showPortEditor = false
     @State private var showOUIDatabaseSettings = false
+    @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
+    @State private var showAbout = false
     @State private var sortOrder = [KeyPathComparator(\DeviceInfo.ipAddress)]
     
     private var fullScanBinding: Binding<Bool> {
@@ -56,10 +58,18 @@ struct DesktopLayout: View {
                         Label("OUI-Datenbank", systemImage: "server.rack")
                     }
                     
+                    Button(action: { showDNSCacheSettings = true }) {
+                        Label("DNS-Cache", systemImage: "memorychip")
+                    }
+                    
                     Divider()
                     
                     Button(action: { showUserGuide = true }) {
                         Label("Bedienungsanleitung", systemImage: "questionmark.circle")
+                    }
+                    
+                    Button(action: { showAbout = true }) {
+                        Label("Über diese App", systemImage: "info.circle")
                     }
                 } label: {
                     Image(systemName: "gearshape")
@@ -83,10 +93,22 @@ struct DesktopLayout: View {
                 OUIDatabaseSettingsView(scanner: scanner)
             }
         }
+        .sheet(isPresented: $showDNSCacheSettings) {
+            NavigationStack {
+                DNSCacheSettingsView(scanner: scanner)
+                    .frame(minWidth: 400, minHeight: 500)
+            }
+        }
         .sheet(isPresented: $showUserGuide) {
             NavigationStack {
                 UserGuideView()
                     .frame(minWidth: 420, minHeight: 480)
+            }
+        }
+        .sheet(isPresented: $showAbout) {
+            NavigationStack {
+                AboutView()
+                    .frame(minWidth: 500, minHeight: 600)
             }
         }
     }

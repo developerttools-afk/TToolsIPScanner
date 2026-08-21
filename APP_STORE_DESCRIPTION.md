@@ -71,7 +71,7 @@ Netzwerk,Scanner,IP,Port,LAN,Scan,Geräte,Network,Tools,DNS,MAC,Hostname,OUI,Pin
 https://github.com/developerttools-afk/TToolsIPScanner
 
 ## Marketing URL (optional)
-https://www.buymeacoffee.com/ttoolsipscanner
+https://buymeacoffee.com/developerttools
 
 ## Privacy Policy URL
 Nicht erforderlich (keine Datensammlung, keine Server-Kommunikation für Kerndaten)

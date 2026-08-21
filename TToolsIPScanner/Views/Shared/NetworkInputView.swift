@@ -28,9 +28,7 @@ struct NetworkInputView: View {
             }
             
             if let error = scanner.scanError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
+                ErrorMessageView(error: error)
             }
             
             if !scanner.recentNetworks.isEmpty {

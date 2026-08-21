@@ -3,9 +3,25 @@ import Network
 import SystemConfiguration
 
 extension NetworkScanner {
-    func getCurrentNetwork() -> String? {
-        var address: String?
+    nonisolated func getCurrentNetwork() -> String? {
+        final class AddressBox: @unchecked Sendable {
+            var value: String?
+            let lock = NSLock()
+            
+            func set(_ newValue: String?) {
+                lock.lock()
+                defer { lock.unlock() }
+                value = newValue
+            }
+            
+            func get() -> String? {
+                lock.lock()
+                defer { lock.unlock() }
+                return value
+            }
+        }
         
+        let addressBox = AddressBox()
         let monitor = NWPathMonitor()
         let group = DispatchGroup()
         group.enter()
@@ -23,21 +39,21 @@ extension NetworkScanner {
                 ?? path.availableInterfaces.first(where: { $0.type == .wiredEthernet })
             
             if let preferred {
-                address = self.getIPAddress(forInterfaceNamed: preferred.name)
+                addressBox.set(self.getIPAddress(forInterfaceNamed: preferred.name))
             } else {
-                address = self.getIPAddress(forInterfaceNamed: nil, excludingCellularLike: true)
+                addressBox.set(self.getIPAddress(forInterfaceNamed: nil, excludingCellularLike: true))
             }
         }
         
         monitor.start(queue: DispatchQueue.global())
         _ = group.wait(timeout: .now() + 1.0)
         
-        return address
+        return addressBox.get()
     }
     
     /// Resolves IPv4 for a named interface (e.g. `en0`). If `name` is nil, returns
     /// the first non-loopback IPv4 that does not look like WWAN.
-    private func getIPAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
+    nonisolated private func getIPAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
         defer { freeifaddrs(ifaddr) }
@@ -98,9 +114,23 @@ extension NetworkScanner {
         }
     }
     
-    /// Reverse-DNS lookup with timeout using async/await
+    /// Reverse-DNS lookup with caching and timeout using async/await
+    ///
+    /// Diese Methode prüft zuerst den DNS-Cache. Bei Cache-Miss wird ein
+    /// DNS-Lookup mit async/await durchgeführt und das Ergebnis im Cache gespeichert.
+    ///
+    /// - Parameters:
+    ///   - ip: IP-Adresse für DNS-Lookup
+    ///   - timeout: Timeout in Sekunden (Standard: 0.8s)
+    /// - Returns: Hostname oder `nil` bei Timeout/Fehler
     internal func getHostName(for ip: String, timeout: TimeInterval = 0.8) async -> String? {
-        await withTaskGroup(of: String?.self) { group in
+        // Prüfe Cache zuerst
+        if let cached = await dnsCache.get(ip) {
+            return cached
+        }
+        
+        // Cache-Miss: Führe DNS-Lookup durch mit async/await
+        return await withTaskGroup(of: String?.self) { group in
             group.addTask {
                 var hints = addrinfo()
                 hints.ai_family = AF_INET
@@ -140,10 +170,39 @@ extension NetworkScanner {
             // Return first result (either resolved name or timeout)
             for await result in group {
                 group.cancelAll()
+                // Speichere Ergebnis im Cache
+                if let hostname = result {
+                    await dnsCache.set(hostname, for: ip)
+                }
                 return result
             }
             
             return nil
+        }
+    }
+    
+    /// Gibt DNS-Cache-Statistiken zurück
+    ///
+    /// - Returns: Formatierter String mit Cache-Statistiken
+    func getDNSCacheStatistics() async -> String {
+        await dnsCache.formattedStatistics()
+    }
+    
+    /// Leert den DNS-Cache
+    ///
+    /// Nützlich zum Testen oder wenn aktuelle DNS-Einträge erzwungen werden sollen.
+    func clearDNSCache() {
+        Task {
+            await dnsCache.clear()
+        }
+    }
+    
+    /// Entfernt abgelaufene DNS-Cache-Einträge
+    ///
+    /// Kann periodisch aufgerufen werden, um Memory zu sparen.
+    func pruneExpiredDNSCache() {
+        Task {
+            await dnsCache.pruneExpired()
         }
     }
 }

@@ -43,70 +43,57 @@ class NetworkScanner: ObservableObject {
     @Published var ouiDatabaseTimestamp: Date?
     @Published var isOUIDatabaseValid: Bool = false
     @Published var currentScanPort: Int = 0
-    @Published var scanError: String?
-    @Published var preferredScanMode: ScanMode = .quickScan {
-        didSet {
-            UserDefaults.standard.set(
-                preferredScanMode == .fullScan ? "fullScan" : "quickScan",
-                forKey: preferredScanModeKey
-            )
-        }
-    }
-    @Published var sortOption: SortOption = .ip {
-        didSet {
-            UserDefaults.standard.set(sortOption.rawValue, forKey: sortOptionKey)
-            sortDevices()
-        }
-    }
-    @Published var sortAscending: Bool = true {
-        didSet {
-            UserDefaults.standard.set(sortAscending, forKey: sortAscendingKey)
-            sortDevices()
-        }
-    }
+    @Published var scanError: ScanError?
     
     // MARK: - Internal Properties
     internal var previousDevices: Set<String> = []
     internal var ouiDatabase: [String: String] = [:]
     /// Current scan task - used for structured cancellation with async/await
     internal var currentScanTask: Task<Void, Never>?
-    
-    // MARK: - UserDefaults Keys
-    internal let customPortsKey = "customPorts"
-    internal let lastScanResultsKey = "lastScanResults"
-    internal let recentNetworksKey = "recentNetworks"
-    internal let deviceAliasesKey = "deviceAliases"
+    /// DNS-Cache für Performance-Optimierung
+    internal let dnsCache = DNSCache(validityDuration: 300, maxSize: 1000)
+    internal let settings: SettingsManager
     internal let ouiDatabaseTimestampKey = "ouiDatabaseTimestamp"
-    internal let sortOptionKey = "sortOption"
-    internal let sortAscendingKey = "sortAscending"
-    internal let preferredScanModeKey = "preferredScanMode"
     internal let ouiDatabaseValidityDuration: TimeInterval = 7 * 24 * 60 * 60
     
+    @Published var preferredScanMode: ScanMode = .quickScan {
+        didSet {
+            settings.preferredScanMode = preferredScanMode
+        }
+    }
+    @Published var sortOption: SortOption = .ip {
+        didSet {
+            settings.sortOption = sortOption
+            sortDevices()
+        }
+    }
+    @Published var sortAscending: Bool = true {
+        didSet {
+            settings.sortAscending = sortAscending
+            sortDevices()
+        }
+    }
+    
     // MARK: - Initialization
-    init() {
-        if let savedSortOption = UserDefaults.standard.string(forKey: sortOptionKey),
-           let option = SortOption(rawValue: savedSortOption) {
-            sortOption = option
-        }
-        sortAscending = UserDefaults.standard.bool(forKey: sortAscendingKey)
+    init(settings: SettingsManager = .shared) {
+        self.settings = settings
         
-        if UserDefaults.standard.string(forKey: preferredScanModeKey) == "fullScan" {
-            preferredScanMode = .fullScan
-        }
+        // Load settings from SettingsManager
+        sortOption = settings.sortOption
+        sortAscending = settings.sortAscending
+        preferredScanMode = settings.preferredScanMode
         
         currentNetwork = getCurrentNetwork() ?? "192.168.1.0"
         loadSettings()
         updateNetworkRange()
         loadOUIDatabase()
-        if let savedData = UserDefaults.standard.data(forKey: deviceAliasesKey),
-           let savedAliases = try? JSONDecoder().decode([String: DeviceAlias].self, from: savedData) {
-            deviceAliases = savedAliases
-        }
+        deviceAliases = settings.deviceAliases
     }
     
     // MARK: - Public Methods
     public func updateCustomPorts(_ ports: Set<Int>) {
         customPorts = ports
+        settings.customPorts = ports
         saveSettings()
     }
 }

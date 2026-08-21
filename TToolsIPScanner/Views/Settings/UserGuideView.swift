@@ -51,10 +51,30 @@ struct UserGuideView: View {
                     ]
                 )
                 
-                Text("Hinweis: Es wird nur das lokale Netzwerk gescannt. Scanne nur Netze, für die du berechtigt bist.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
+                Divider()
+                    .padding(.vertical, 8)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Wichtige Hinweise")
+                            .font(.headline)
+                    }
+                    
+                    Text("• Es wird nur das lokale Netzwerk gescannt. Scanne nur Netze, für die du berechtigt bist.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    Text("• Dies ist ein Hobbyprojekt ohne Gewährleistung. Nutzung auf eigene Gefahr.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    Text("• Weitere Informationen findest du unter „Über diese App" im Einstellungsmenü.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()

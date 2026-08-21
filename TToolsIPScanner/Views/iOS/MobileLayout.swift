@@ -7,6 +7,7 @@ struct MobileLayout: View {
     @State private var showOUIDatabaseSettings = false
     @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
+    @State private var showAbout = false
     
     private var fullScanBinding: Binding<Bool> {
         Binding(
@@ -135,6 +136,10 @@ struct MobileLayout: View {
                         Button(action: { showUserGuide = true }) {
                             Label("Bedienungsanleitung", systemImage: "questionmark.circle")
                         }
+                        
+                        Button(action: { showAbout = true }) {
+                            Label("Über diese App", systemImage: "info.circle")
+                        }
                     } label: {
                         Image(systemName: "gearshape")
                     }
@@ -160,6 +165,11 @@ struct MobileLayout: View {
             .sheet(isPresented: $showUserGuide) {
                 NavigationStack {
                     UserGuideView()
+                }
+            }
+            .sheet(isPresented: $showAbout) {
+                NavigationStack {
+                    AboutView()
                 }
             }
         }

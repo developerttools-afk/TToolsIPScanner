@@ -11,6 +11,7 @@ struct DesktopLayout: View {
     @State private var showOUIDatabaseSettings = false
     @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
+    @State private var showAbout = false
     @State private var sortOrder = [KeyPathComparator(\DeviceInfo.ipAddress)]
     
     private var fullScanBinding: Binding<Bool> {
@@ -66,6 +67,10 @@ struct DesktopLayout: View {
                     Button(action: { showUserGuide = true }) {
                         Label("Bedienungsanleitung", systemImage: "questionmark.circle")
                     }
+                    
+                    Button(action: { showAbout = true }) {
+                        Label("Über diese App", systemImage: "info.circle")
+                    }
                 } label: {
                     Image(systemName: "gearshape")
                 }
@@ -98,6 +103,12 @@ struct DesktopLayout: View {
             NavigationStack {
                 UserGuideView()
                     .frame(minWidth: 420, minHeight: 480)
+            }
+        }
+        .sheet(isPresented: $showAbout) {
+            NavigationStack {
+                AboutView()
+                    .frame(minWidth: 500, minHeight: 600)
             }
         }
     }

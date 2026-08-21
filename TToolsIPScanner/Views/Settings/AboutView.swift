@@ -78,10 +78,7 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
                     
                     Button(action: {
-                        // TODO: Ersetze mit deinem eigenen Buy Me a Coffee Link
-                        // Beispiel: https://www.buymeacoffee.com/deinusername
-                        // Oder PayPal: https://www.paypal.me/deinusername
-                        if let url = URL(string: "https://www.buymeacoffee.com/yourusername") {
+                        if let url = URL(string: "https://buymeacoffee.com/developerttools") {
                             openURL(url)
                         }
                     }) {

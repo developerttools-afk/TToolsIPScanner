@@ -61,11 +61,11 @@ https://____________________/impressum.html
    - Auch in iOS-Version → Lokalisierung Deutsch/English prüfen
 
 2. **Support-URL:**
-   - App Store Connect → TTools IP Scanner → iOS-Version 1.30 → Deutsch → Support-URL
+   - App Store Connect → TTools IP Scanner → iOS-Version 1.31 → Deutsch → Support-URL
    - Dasselbe in English und anderen Lokalisierungen
 
 3. **Copyright:**
-   - App Store Connect → TTools IP Scanner → iOS-Version 1.30 → Copyright
+   - App Store Connect → TTools IP Scanner → iOS-Version 1.31 → Copyright
    - Eintragen: `© 2026 Thorsten Albers`
 
 ## Wichtig

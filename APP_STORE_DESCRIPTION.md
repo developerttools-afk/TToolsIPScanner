@@ -60,7 +60,7 @@ Falls dir die App gefällt, freue ich mich über eine kleine Unterstützung via 
 
 ---
 
-**Version 1.21** - Aktualisiert mit modernster Swift Concurrency, DNS-Cache und erweiterten Test-Coverage.
+**Version 1.31** - Optimiertes Hilfe-Menü und weitere Verbesserungen.
 
 © 2024 Thorsten Albers
 

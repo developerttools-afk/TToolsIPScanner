@@ -1,4 +1,4 @@
-# App Store Connect – Texte (v1.21 Build 9)
+# App Store Connect – Texte (v1.31 Build 1)
 
 Zum Kopieren in App Store Connect. Zeichenlimits von Apple beachten.
 

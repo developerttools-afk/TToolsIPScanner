@@ -7,19 +7,19 @@ extension NetworkScanner {
         let timeout = NetworkConstants.discoveryTimeout
         var openPorts: [Int] = []
         
-        // CRITICAL: Must cover routers/gateways!
-        // Expanded port list to catch more devices:
-        // - 80 (HTTP): Web servers, routers, IoT
-        // - 443 (HTTPS): Modern devices, services
-        // - 53 (DNS): ROUTERS/GATEWAYS (was missing!)
-        // - 22 (SSH): Linux, Unix, network equipment
-        // - 445 (SMB): Windows, NAS, file servers
-        // - 8080 (Alt HTTP): Alt web servers, proxies
+        // CRITICAL: Expanded port list to catch stubborn routers/gateways!
+        // Many routers ONLY respond to specific ports or have firewalls
+        // Testing more ports to ensure we catch everything:
+        // - 80, 8080, 8443: HTTP/Alt HTTP/Alt HTTPS (most common)
+        // - 443: HTTPS (web admin)
+        // - 22, 23: SSH/Telnet (management)
+        // - 53: DNS (critical for gateways)
+        // - 445, 139: SMB (Windows/NAS)
+        // - 3389: RDP (Windows)
+        // - 5900: VNC (remote access)
         //
-        // Dead host: 6 × 0.1s = 0.6s (still fast)
-        // Alive host: Exits after first response
-        
-        let criticalPorts = [80, 443, 53, 22, 445, 8080]
+        // Strategy: Try most common first, then management ports
+        let criticalPorts = [80, 8080, 443, 22, 53, 8443, 445, 23, 139, 3389, 5900]
         
         for port in criticalPorts {
             let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)

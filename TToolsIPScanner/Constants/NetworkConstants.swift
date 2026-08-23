@@ -122,12 +122,8 @@ enum NetworkConstants {
         53,           // DNS
         1883          // MQTT
     ]
-    #if os(iOS)
-    /// iOS Wi-Fi + Local Network Permission checks can be slow
-    /// 0.3s is necessary for reliability on real devices
-    static let discoveryTimeout: TimeInterval = 0.3
-    #else
-    /// macOS typically has more stable networking
-    static let discoveryTimeout: TimeInterval = 0.15
-    #endif
+    /// Unified timeout for both platforms
+    /// 0.2s balances speed (11 ports × 0.2s = 2.2s per dead host)
+    /// vs reliability (LAN RTT + TCP handshake)
+    static let discoveryTimeout: TimeInterval = 0.2
 } 

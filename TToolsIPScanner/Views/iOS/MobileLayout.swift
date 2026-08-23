@@ -97,11 +97,9 @@ struct MobileLayout: View {
                     HStack(spacing: 4) {
                         sortHeaderButton(for: .ip, label: "IP")
                         Spacer()
-                        sortHeaderButton(for: .hostName, label: "Hostname")
+                        sortHeaderButton(for: .hostname, label: "Hostname")
                         Spacer()
                         sortHeaderButton(for: .manufacturer, label: "Hersteller")
-                        Spacer()
-                        sortHeaderButton(for: .status, label: "Status")
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)

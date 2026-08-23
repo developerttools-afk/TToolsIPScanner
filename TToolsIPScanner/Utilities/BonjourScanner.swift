@@ -28,12 +28,9 @@ actor BonjourScanner {
             "_homekit._tcp"     // HomeKit devices
         ]
         
-        await withTaskGroup(of: Void.self) { group in
-            for serviceType in serviceTypes {
-                group.addTask {
-                    await self.browseService(serviceType)
-                }
-            }
+        // Start all browsers
+        for serviceType in serviceTypes {
+            browseService(serviceType)
         }
         
         // Give services time to respond
@@ -45,7 +42,7 @@ actor BonjourScanner {
         return foundHosts
     }
     
-    private func browseService(_ serviceType: String) async {
+    private func browseService(_ serviceType: String) {
         let descriptor = NWBrowser.Descriptor.bonjour(type: serviceType, domain: "local.")
         let params = NWParameters()
         params.includePeerToPeer = true

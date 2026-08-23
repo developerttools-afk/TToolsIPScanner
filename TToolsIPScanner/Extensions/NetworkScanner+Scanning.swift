@@ -143,11 +143,16 @@ extension NetworkScanner {
         print("🚀 Starting scan on \(baseIP).0/24 (\(totalIPs) IPs)")
         
         #if os(iOS)
-        // Start Bonjour discovery in parallel
+        // Start Bonjour discovery in parallel (iOS only)
+        print("📡 Starting Bonjour/mDNS discovery (3s timeout)...")
         let bonjourScanner = BonjourScanner()
-        Task {
-            let bonjourHosts = await bonjourScanner.scanNetwork(timeout: 5.0)
-            print("📡 Bonjour found \(bonjourHosts.count) hosts: \(bonjourHosts)")
+        Task.detached {
+            let bonjourHosts = await bonjourScanner.scanNetwork(timeout: 3.0)
+            if !bonjourHosts.isEmpty {
+                print("📡 Bonjour found \(bonjourHosts.count) hosts: \(bonjourHosts)")
+            } else {
+                print("📡 Bonjour found no hosts (devices may not advertise services)")
+            }
         }
         #endif
         

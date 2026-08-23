@@ -122,8 +122,9 @@ enum NetworkConstants {
         53,           // DNS
         1883          // MQTT
     ]
-    /// Unified timeout for both platforms
-    /// 0.2s balances speed (11 ports × 0.2s = 2.2s per dead host)
-    /// vs reliability (LAN RTT + TCP handshake)
-    static let discoveryTimeout: TimeInterval = 0.2
+    /// Fast timeout - we now test fewer ports
+    /// 0.15s is enough for LAN (RTT <5ms typically)
+    /// Dead host cost: 3 × 0.15s = 0.45s
+    /// Total scan time: ~15-20 seconds for /24
+    static let discoveryTimeout: TimeInterval = 0.15
 } 

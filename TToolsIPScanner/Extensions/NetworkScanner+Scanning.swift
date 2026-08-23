@@ -140,6 +140,8 @@ extension NetworkScanner {
         
         let discoveryHits = ResolutionStore<String, [Int]>()
         
+        print("🚀 Starting scan on \(baseIP).0/24 (\(totalIPs) IPs)")
+        
         await updateScanState(
             progress: "Starte Scan von \(totalIPs) IPs auf \(baseIP).0/24…",
             percentage: 0

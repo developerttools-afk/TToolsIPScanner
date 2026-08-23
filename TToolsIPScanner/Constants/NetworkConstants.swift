@@ -122,8 +122,12 @@ enum NetworkConstants {
         53,           // DNS
         1883          // MQTT
     ]
-    /// Ultra-fast timeout for LAN - both platforms
-    /// LAN RTT is <5ms, even on Wi-Fi. 0.1s is MORE than enough.
-    /// Faster timeout = faster scan, fewer wasted cycles on dead hosts
+    #if os(iOS)
+    /// iOS Wi-Fi can be slower, especially on busy networks
+    /// 0.15s balances speed and reliability
+    static let discoveryTimeout: TimeInterval = 0.15
+    #else
+    /// macOS typically has more stable networking
     static let discoveryTimeout: TimeInterval = 0.1
+    #endif
 } 

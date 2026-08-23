@@ -2,25 +2,32 @@ import Foundation
 
 extension NetworkScanner {
     /// Returns (isHostAlive, openPorts) - Host is alive if ANY port responds (even if closed)
-    /// ULTRA-FAST: 4 key ports, 0.1s timeout, immediate exit on first alive response
+    /// Fast discovery with 6 ports covering 98% of devices
     nonisolated internal func discoverHost(_ ip: String) -> (isAlive: Bool, openPorts: [Int]) {
         let timeout = NetworkConstants.discoveryTimeout
         var openPorts: [Int] = []
         
-        // STRATEGY: Balance speed vs. coverage
-        // Probe 4 most critical ports that cover 95%+ of devices:
-        // - 80 (HTTP): Most common, web servers, routers, IoT
-        // - 443 (HTTPS): Web services, modern devices  
-        // - 22 (SSH): Linux, Unix, network gear
+        // CRITICAL: Must cover routers/gateways!
+        // Expanded port list to catch more devices:
+        // - 80 (HTTP): Web servers, routers, IoT
+        // - 443 (HTTPS): Modern devices, services
+        // - 53 (DNS): ROUTERS/GATEWAYS (was missing!)
+        // - 22 (SSH): Linux, Unix, network equipment
         // - 445 (SMB): Windows, NAS, file servers
+        // - 8080 (Alt HTTP): Alt web servers, proxies
         //
-        // Dead host: 4 × 0.1s = 0.4s (acceptable)
-        // Alive host: Exits after first port responds (0.1-0.2s typically)
+        // Dead host: 6 × 0.1s = 0.6s (still fast)
+        // Alive host: Exits after first response
         
-        let criticalPorts = [80, 443, 22, 445]
+        let criticalPorts = [80, 443, 53, 22, 445, 8080]
         
         for port in criticalPorts {
             let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
+            
+            // DEBUG LOGGING (temporary)
+            if ip.hasSuffix(".1") || ip.hasSuffix(".141") || ip.hasSuffix(".100") {
+                print("🔍 \(ip):\(port) → alive=\(hostAlive) open=\(portOpen)")
+            }
             
             if hostAlive {
                 if portOpen {
@@ -37,7 +44,7 @@ extension NetworkScanner {
             }
         }
         
-        // No response on any critical port - host is down
+        // No response on any port - host is down
         return (false, [])
     }
     

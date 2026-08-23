@@ -31,13 +31,18 @@ struct MobileLayout: View {
                 scanner.sortAscending = true
             }
         }) {
-            HStack(spacing: 2) {
+            HStack(spacing: 3) {
                 Text(label)
+                    .font(.subheadline)
+                    .fontWeight(scanner.sortOption == option ? .semibold : .regular)
                 if scanner.sortOption == option {
                     Image(systemName: scanner.sortAscending ? "chevron.up" : "chevron.down")
-                        .font(.caption2)
+                        .font(.caption)
                 }
             }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -100,16 +105,16 @@ struct MobileLayout: View {
                 
                 // Sortierung durch Tap auf Header
                 Section {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 8) {
                         sortHeaderButton(for: .ip, label: "IP")
                         Spacer()
-                        sortHeaderButton(for: .hostname, label: "Hostname")
+                        sortHeaderButton(for: .hostname, label: "Host")
                         Spacer()
                         sortHeaderButton(for: .manufacturer, label: "Hersteller")
                     }
-                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .listRowBackground(Color.clear)
+                    .padding(.vertical, 4)
                 }
                 
                 Section {

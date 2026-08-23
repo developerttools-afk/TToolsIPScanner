@@ -123,11 +123,11 @@ enum NetworkConstants {
         1883          // MQTT
     ]
     #if os(iOS)
-    /// iOS Wi-Fi can be slower, especially on busy networks
-    /// 0.15s balances speed and reliability
-    static let discoveryTimeout: TimeInterval = 0.15
+    /// iOS Wi-Fi + Local Network Permission checks can be slow
+    /// 0.3s is necessary for reliability on real devices
+    static let discoveryTimeout: TimeInterval = 0.3
     #else
     /// macOS typically has more stable networking
-    static let discoveryTimeout: TimeInterval = 0.1
+    static let discoveryTimeout: TimeInterval = 0.15
     #endif
 } 

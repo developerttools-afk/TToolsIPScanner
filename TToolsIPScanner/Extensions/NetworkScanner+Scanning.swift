@@ -142,6 +142,15 @@ extension NetworkScanner {
         
         print("🚀 Starting scan on \(baseIP).0/24 (\(totalIPs) IPs)")
         
+        #if os(iOS)
+        // Request permission explicitly before scan
+        LocalNetworkAccess.requestIfNeeded()
+        // Give iOS time to process permission
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+        print("⚠️ iOS: Local Network Permission MUST be granted in Settings!")
+        print("⚠️ Check: Settings → TTools IP Scanner → Local Network → ON")
+        #endif
+        
         await updateScanState(
             progress: "Starte Scan von \(totalIPs) IPs auf \(baseIP).0/24…",
             percentage: 0

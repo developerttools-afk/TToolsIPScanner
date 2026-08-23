@@ -157,7 +157,7 @@ extension NetworkScanner {
             guard !Task.isCancelled else { return }
             alreadyListed.insert(ip)
             discoveryHits.set([], for: ip)
-            let device = await makeDiscoveredDevice(
+            let device = makeDiscoveredDevice(
                 ip: ip,
                 openPorts: [],
                 previousDevices: previousDevices,
@@ -166,6 +166,16 @@ extension NetworkScanner {
             devices.append(device)
             scanProgress = "\(devices.count) Gerät(e) gefunden"
         }
+        
+        await updateScanState(
+            progress: "Prüfe Ports auf \(preFound.count) Hosts…",
+            percentage: 15
+        )
+        await fillDiscoveredHostPorts(
+            ips: preFound.sorted(by: Self.ipSort),
+            ports: portsForScan(mode),
+            hits: discoveryHits
+        )
         #endif
         
         await updateScanState(
@@ -193,10 +203,8 @@ extension NetworkScanner {
                     if skipIPs.contains(ip) {
                         return (i, ip, nil, nil)
                     }
-                    let (isAlive, foundPorts) = await self.discoverHostModern(ip: ip)
-                    #else
-                    let (isAlive, foundPorts) = self.discoverHost(ip)
                     #endif
+                    let (isAlive, foundPorts) = self.discoverHost(ip)
                     guard isAlive else { return (i, ip, nil, nil) }
                     let device = await self.makeDiscoveredDevice(
                         ip: ip,
@@ -293,11 +301,21 @@ extension NetworkScanner {
                     }
                     
                     let probed = discoveryPorts[device.ipAddress] ?? device.openPorts
-                    let scanned = self.probeOpenPorts(
+                    let scanned: [Int]
+                    #if os(iOS)
+                    // BSD connect() is unreliable for LAN TCP on iOS; NWConnection sees open ports.
+                    scanned = await self.probeOpenPortsModern(
+                        device.ipAddress,
+                        ports: portsToProbe,
+                        timeout: 0.6
+                    )
+                    #else
+                    scanned = self.probeOpenPorts(
                         device.ipAddress,
                         ports: portsToProbe,
                         timeout: 0.5
                     )
+                    #endif
                     let openPorts = Array(Set(probed + scanned)).sorted()
                     
                     // Update device with open ports on main thread
@@ -425,6 +443,46 @@ extension NetworkScanner {
         var copy = devices
         mutate(&copy[index])
         devices = copy
+    }
+    
+    /// Probe open ports on already-listed hosts and update the UI immediately.
+    private func fillDiscoveredHostPorts(
+        ips: [String],
+        ports: [Int],
+        hits: ResolutionStore<String, [Int]>
+    ) async {
+        guard !ips.isEmpty, !ports.isEmpty else { return }
+        
+        await withTaskGroup(of: (String, [Int]).self) { group in
+            var next = ips.makeIterator()
+            let maxConcurrent = 6
+            
+            func enqueue(_ ip: String) {
+                group.addTask {
+                    #if os(iOS)
+                    let found = await self.probeOpenPortsModern(ip, ports: ports, timeout: 0.7)
+                    #else
+                    let found = self.probeOpenPorts(ip, ports: ports, timeout: 0.5)
+                    #endif
+                    return (ip, found)
+                }
+            }
+            
+            for _ in 0..<maxConcurrent {
+                if let ip = next.next() { enqueue(ip) }
+            }
+            
+            for await (ip, found) in group {
+                guard !Task.isCancelled else { break }
+                hits.set(found, for: ip)
+                if let index = devices.firstIndex(where: { $0.ipAddress == ip }) {
+                    devices[index].openPorts = found
+                }
+                if let ip = next.next() {
+                    enqueue(ip)
+                }
+            }
+        }
     }
     
     /// Ports for phase-2 custom/full scan on discovered hosts.

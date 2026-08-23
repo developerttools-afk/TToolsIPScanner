@@ -6,29 +6,34 @@ struct DeviceDetailView: View {
     @ObservedObject var scanner: NetworkScanner
     @State private var showEditAlias = false
     
+    /// NavigationLink captures a snapshot; always read the live scan result.
+    private var live: DeviceInfo {
+        scanner.devices.first { $0.ipAddress == device.ipAddress } ?? device
+    }
+    
     var body: some View {
         List {
             Section {
                 HStack {
-                    StatusIndicator(status: device.status)
-                    Text(device.status == .missing ? "Nicht erreichbar" : "Aktiv")
-                        .foregroundColor(device.status == .missing ? .red : .green)
+                    StatusIndicator(status: live.status)
+                    Text(live.status == .missing ? "Nicht erreichbar" : "Aktiv")
+                        .foregroundColor(live.status == .missing ? .red : .green)
                 }
                 
-                LabeledContent("IP-Adresse", value: device.ipAddress)
+                LabeledContent("IP-Adresse", value: live.ipAddress)
                     .contextMenu {
                         Button(action: {
-                            UIPasteboard.general.string = device.ipAddress
+                            UIPasteboard.general.string = live.ipAddress
                         }) {
                             Label("IP kopieren", systemImage: "doc.on.doc")
                         }
                     }
                 
-                if !device.macAddress.isEmpty {
-                    LabeledContent("MAC-Adresse", value: device.macAddress)
+                if !live.macAddress.isEmpty {
+                    LabeledContent("MAC-Adresse", value: live.macAddress)
                         .contextMenu {
                             Button(action: {
-                                UIPasteboard.general.string = device.macAddress
+                                UIPasteboard.general.string = live.macAddress
                             }) {
                                 Label("MAC kopieren", systemImage: "doc.on.doc")
                             }
@@ -37,19 +42,26 @@ struct DeviceDetailView: View {
                     LabeledContent("MAC-Adresse", value: "Nicht verfügbar")
                 }
                 
-                if !device.manufacturer.isEmpty {
-                    LabeledContent("Hersteller", value: device.manufacturer)
+                if !live.manufacturer.isEmpty {
+                    LabeledContent("Hersteller", value: live.manufacturer)
                 }
                 
-                if let alias = scanner.getDeviceAlias(for: device) {
+                if let alias = scanner.getDeviceAlias(for: live) {
                     LabeledContent("Alias", value: alias.customName)
                 }
             }
             
-            if !device.openPorts.isEmpty {
-                Section("Offene Ports") {
-                    ForEach(device.openPorts.sorted(), id: \.self) { port in
+            Section("Offene Ports") {
+                if live.openPorts.isEmpty {
+                    Text(scanner.isScanning ? "Ports werden geprüft…" : "Keine offenen Ports gefunden")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(live.openPorts.sorted(), id: \.self) { port in
                         HStack {
+                            Text(NetworkConstants.portLetter(for: port))
+                                .font(.body.monospaced().weight(.semibold))
+                                .foregroundStyle(scanner.getPortSymbol(port)?.color ?? .blue)
+                                .frame(minWidth: 16, alignment: .center)
                             if let symbolInfo = scanner.getPortSymbol(port) {
                                 Image(systemName: symbolInfo.symbol)
                                     .foregroundColor(symbolInfo.color)
@@ -64,9 +76,9 @@ struct DeviceDetailView: View {
             }
             
             Section {
-                if device.openPorts.contains(80) || device.openPorts.contains(443) {
+                if live.openPorts.contains(80) || live.openPorts.contains(443) {
                     Button(action: {
-                        if let url = URL(string: "http://\(device.ipAddress)") {
+                        if let url = URL(string: "http://\(live.ipAddress)") {
                             UIApplication.shared.open(url)
                         }
                     }) {
@@ -74,9 +86,9 @@ struct DeviceDetailView: View {
                     }
                 }
                 
-                if device.openPorts.contains(22) {
+                if live.openPorts.contains(22) {
                     Button(action: {
-                        if let url = URL(string: "ssh://\(device.ipAddress)") {
+                        if let url = URL(string: "ssh://\(live.ipAddress)") {
                             UIApplication.shared.open(url)
                         }
                     }) {
@@ -89,17 +101,17 @@ struct DeviceDetailView: View {
                 }
             }
             
-            if let alias = scanner.getDeviceAlias(for: device),
+            if let alias = scanner.getDeviceAlias(for: live),
                !alias.notes.isEmpty {
                 Section("Notizen") {
                     Text(alias.notes)
                 }
             }
         }
-        .navigationTitle(scanner.displayName(for: device))
+        .navigationTitle(scanner.displayName(for: live))
         .sheet(isPresented: $showEditAlias) {
             NavigationStack {
-                DeviceAliasEditor(device: device, scanner: scanner)
+                DeviceAliasEditor(device: live, scanner: scanner)
             }
         }
     }

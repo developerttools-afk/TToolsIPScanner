@@ -5,20 +5,34 @@ struct PortsPreview: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(ports.prefix(8).sorted(), id: \.self) { port in
-                Text("\(port)")
-                    .font(.caption.monospaced())
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.12))
-                    .cornerRadius(4)
-                    .help(NetworkConstants.portDescriptions[port] ?? "Port \(port)")
-            }
-            if ports.count > 8 {
-                Text("+\(ports.count - 8)")
+            if ports.isEmpty {
+                Text("–")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.tertiary)
+                    .help("Keine offenen Ports")
+            } else {
+                ForEach(ports.prefix(10).sorted(), id: \.self) { port in
+                    Text(NetworkConstants.portLetter(for: port))
+                        .font(.caption.monospaced().weight(.semibold))
+                        .textCase(.lowercase)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(badgeColor(for: port).opacity(0.16))
+                        .foregroundStyle(badgeColor(for: port))
+                        .cornerRadius(4)
+                        .help(NetworkConstants.portBadgeHelp(for: port))
+                        .accessibilityLabel(NetworkConstants.portBadgeHelp(for: port))
+                }
+                if ports.count > 10 {
+                    Text("+\(ports.count - 10)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
+    }
+    
+    private func badgeColor(for port: Int) -> Color {
+        NetworkConstants.portSymbols[port]?.color ?? .blue
     }
 }

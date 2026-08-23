@@ -6,27 +6,26 @@ struct DeviceRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            HStack(alignment: .center, spacing: 8) {
                 StatusIndicator(status: device.status)
                 
                 Text(device.ipAddress)
                     .fontWeight(.medium)
                 
-                Spacer()
+                PortsPreview(ports: device.openPorts)
+                
+                Spacer(minLength: 8)
                 
                 Text(displayName ?? device.hostName)
                     .foregroundColor(.secondary)
                     .font(.subheadline)
+                    .lineLimit(1)
             }
             
             if !device.manufacturer.isEmpty {
                 Text(device.manufacturer)
                     .font(.caption)
                     .foregroundColor(.secondary)
-            }
-            
-            if !device.openPorts.isEmpty {
-                PortsPreview(ports: device.openPorts)
             }
         }
     }

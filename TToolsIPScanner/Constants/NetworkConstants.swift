@@ -47,6 +47,38 @@ enum NetworkConstants {
         8883: "MQTT over SSL"
     ]
     
+    /// Compact letters for list/table badges (s = SSH, w = Web, …).
+    static let portLetters: [Int: String] = [
+        20: "f", 21: "f",
+        22: "s",
+        23: "t",
+        25: "m", 465: "m", 587: "m", 110: "m", 143: "m", 993: "m", 995: "m",
+        53: "d",
+        67: "c", 68: "c",
+        80: "w", 443: "w", 8080: "w", 8443: "w",
+        123: "n",
+        137: "b", 139: "b", 445: "b",
+        161: "g",
+        389: "l", 636: "l",
+        515: "p", 631: "p",
+        548: "a",
+        1883: "q", 8883: "q",
+        3306: "y", 5432: "y", 1433: "y",
+        3389: "r",
+        5900: "v"
+    ]
+    
+    static func portLetter(for port: Int) -> String {
+        portLetters[port] ?? "\(port)"
+    }
+    
+    static func portBadgeHelp(for port: Int) -> String {
+        if let name = portDescriptions[port] {
+            return "\(name) · \(port)"
+        }
+        return "Port \(port)"
+    }
+    
     static let portSymbols: [Int: (symbol: String, color: Color)] = [
         20: ("arrow.down", .blue),
         21: ("arrow.up.arrow.down", .blue),

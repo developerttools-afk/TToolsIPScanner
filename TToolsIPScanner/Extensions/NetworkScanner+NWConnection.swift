@@ -89,6 +89,23 @@ extension NetworkScanner {
         return (alive, openPorts)
     }
 
+    /// Phase-2 port scan for already discovered hosts. Sequential per IP to keep
+    /// NWConnection count low; only `.ready` counts as an open port.
+    nonisolated func probeOpenPortsModern(
+        _ ip: String,
+        ports: [Int],
+        timeout: TimeInterval = 0.6
+    ) async -> [Int] {
+        var open: [Int] = []
+        for port in ports {
+            let result = await probeHostModern(ip: ip, port: UInt16(clamping: port), timeout: timeout)
+            if result.open {
+                open.append(port)
+            }
+        }
+        return open
+    }
+
     nonisolated private static func hostIsAlive(despite error: NWError) -> Bool {
         guard case .posix(let code) = error else { return false }
         switch code {

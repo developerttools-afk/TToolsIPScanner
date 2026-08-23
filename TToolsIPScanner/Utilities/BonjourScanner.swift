@@ -62,11 +62,9 @@ actor BonjourScanner {
                     foundHosts.insert("\(ipv4)")
                 }
 
-            case .service:
-                // NWBrowser yields `.service`, not an IP. Resolve via a short-lived connection.
-                let endpoint = result.endpoint
+            case .service(let name, _, let domain, _):
                 let task = Task { [weak self] in
-                    if let ip = await Self.resolveIPv4(endpoint) {
+                    if let ip = Self.ipv4(forService: name, domain: domain) {
                         await self?.record(ip)
                     }
                 }
@@ -91,58 +89,41 @@ actor BonjourScanner {
         browsers.removeAll()
     }
 
-    /// Connect to a Bonjour endpoint just long enough to read the remote IPv4.
-    nonisolated private static func resolveIPv4(_ endpoint: NWEndpoint) async -> String? {
-        await withCheckedContinuation { continuation in
-            let params = NWParameters.tcp
-            params.includePeerToPeer = true
-            let connection = NWConnection(to: endpoint, using: params)
-            let box = ProbeStateBox()
-
-            let finish: @Sendable (String?) -> Void = { ip in
-                guard box.consume() else { return }
-                connection.cancel()
-                continuation.resume(returning: ip)
-            }
-
-            let timeoutTask = Task {
-                try? await Task.sleep(nanoseconds: 1_200_000_000)
-                finish(nil)
-            }
-
-            connection.stateUpdateHandler = { state in
-                let ip = ipv4String(from: connection.currentPath?.remoteEndpoint)
-                    ?? ipv4String(from: endpoint)
-
-                switch state {
-                case .ready:
-                    timeoutTask.cancel()
-                    finish(ip)
-
-                case .waiting, .failed:
-                    if let ip {
-                        timeoutTask.cancel()
-                        finish(ip)
-                    } else if case .failed = state {
-                        timeoutTask.cancel()
-                        finish(nil)
-                    }
-
-                default:
-                    break
-                }
-            }
-
-            connection.start(queue: .global(qos: .utility))
-        }
+    /// Resolve `Name.local` via DNS — no NWConnection, so no unconnected-metadata logs.
+    nonisolated private static func ipv4(forService name: String, domain: String) -> String? {
+        let trimmedDomain = domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let host = trimmedDomain.isEmpty ? "\(name).local" : "\(name).\(trimmedDomain)"
+        return ipv4(forHost: host)
     }
 
-    nonisolated private static func ipv4String(from endpoint: NWEndpoint?) -> String? {
-        guard let endpoint else { return nil }
-        if case .hostPort(let host, _) = endpoint, case .ipv4(let ipv4) = host {
-            return "\(ipv4)"
-        }
-        return nil
+    nonisolated private static func ipv4(forHost host: String) -> String? {
+        var hints = addrinfo(
+            ai_flags: 0,
+            ai_family: AF_INET,
+            ai_socktype: SOCK_STREAM,
+            ai_protocol: 0,
+            ai_addrlen: 0,
+            ai_canonname: nil,
+            ai_addr: nil,
+            ai_next: nil
+        )
+        var info: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(host, nil, &hints, &info) == 0, let first = info else { return nil }
+        defer { freeaddrinfo(first) }
+
+        var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        guard getnameinfo(
+            first.pointee.ai_addr,
+            first.pointee.ai_addrlen,
+            &buffer,
+            socklen_t(NI_MAXHOST),
+            nil,
+            0,
+            NI_NUMERICHOST
+        ) == 0 else { return nil }
+
+        let ip = String(cString: buffer)
+        return ip.contains(".") ? ip : nil
     }
 }
 #endif

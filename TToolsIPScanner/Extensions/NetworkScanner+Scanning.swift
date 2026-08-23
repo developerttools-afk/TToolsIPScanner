@@ -12,23 +12,30 @@ extension NetworkScanner {
         let ipToScan = baseIP ?? currentNetwork
         scanError = nil
         
+        print("🔍 DEBUG: startScan called with baseIP: \(baseIP ?? "nil"), currentNetwork: \(currentNetwork), mode: \(mode)")
+        
         // Validiere IP-Adresse
         guard IPAddressValidator.isValidIPv4(ipToScan) else {
+            print("❌ DEBUG: Invalid IP address: \(ipToScan)")
             scanError = .invalidIPAddress(ipToScan)
             return
         }
         
         // Prüfe ob bereits ein Scan läuft
         guard !isScanning else {
+            print("❌ DEBUG: Scan already running")
             scanError = .scanAlreadyRunning
             return
         }
         
         // Prüfe ob Ports konfiguriert sind
         guard !customPorts.isEmpty || mode == .fullScan else {
+            print("❌ DEBUG: No ports specified. customPorts.count: \(customPorts.count)")
             scanError = .noPortsSpecified
             return
         }
+        
+        print("✅ DEBUG: Starting scan on \(ipToScan), ports: \(customPorts.count)")
         
         preferredScanMode = mode
         currentNetwork = ipToScan
@@ -140,6 +147,8 @@ extension NetworkScanner {
         
         let discoveryHits = ResolutionStore<String, [Int]>()
         
+        print("🚀 DEBUG: Starting TaskGroup scan for \(totalIPs) IPs on base \(baseIP)")
+        
         // Use TaskGroup for structured concurrency
         await withTaskGroup(of: (Int, String, [Int]?, DeviceInfo?).self) { group in
             for i in 1...totalIPs {
@@ -147,6 +156,9 @@ extension NetworkScanner {
                     guard !Task.isCancelled else { return (i, "", nil, nil) }
                     
                     let ip = "\(baseIP).\(i)"
+                    if i == 1 {
+                        print("🔎 DEBUG: Scanning first IP: \(ip)")
+                    }
                     
                     // Phase 1: lightweight discovery only (fixed ports)
                     let foundPorts = self.probeOpenDiscoveryPorts(ip)

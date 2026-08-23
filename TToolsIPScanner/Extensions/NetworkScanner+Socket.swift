@@ -12,8 +12,12 @@ extension NetworkScanner {
         for port in NetworkConstants.discoveryPorts {
             if isPortOpen(ip: ip, port: port, timeout: NetworkConstants.discoveryTimeout) {
                 open.append(port)
+                print("🎯 DEBUG: Found open port \(port) on \(ip)")
                 if open.count >= 2 { break }
             }
+        }
+        if open.isEmpty {
+            print("⚠️  DEBUG: No open ports found on \(ip)")
         }
         return open
     }

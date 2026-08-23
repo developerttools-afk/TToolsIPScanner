@@ -9,7 +9,8 @@ Scanne dein lokales Netzwerk auf Geräte, Ports und Hostnamen. Einfach, schnell 
 
 ### ✨ Funktionen
 
-• **Schneller Netzwerk-Scan**: Entdecke alle aktiven Geräte in deinem LAN
+• **Blitzschneller Netzwerk-Scan**: Entdecke alle aktiven Geräte in deinem LAN (254 IPs in ~2 Minuten)
+• **Intelligente Host-Discovery**: Erkennt auch Geräte ohne offene Ports
 • **Port-Scanning**: Erkenne offene Ports auf gefundenen Geräten
 • **Hostname-Auflösung**: Zeigt Gerätenamen per DNS-Lookup an
 • **MAC-Adressen**: Erkennung von MAC-Adressen und Herstellern
@@ -18,6 +19,7 @@ Scanne dein lokales Netzwerk auf Geräte, Ports und Hostnamen. Einfach, schnell 
 • **DNS-Cache**: Schnellere wiederholte Scans durch intelligentes Caching
 • **Geräte-Aliase**: Benenne Geräte individuell
 • **Quick & Full Scan**: Wähle zwischen schnellem und vollständigem Scan
+• **Live-Status**: Echtzeit-Anzeige des Scan-Fortschritts
 • **Offline-fähig**: Alle Kernfunktionen ohne Internet-Verbindung nutzbar
 
 ### 📱 Plattformen
@@ -48,7 +50,7 @@ Ich freue mich über Feedback und Verbesserungsvorschläge! Allerdings kann ich 
 
 ### ☕ Unterstützung
 
-Falls dir die App gefällt, freue ich mich über eine kleine Unterstützung via "Buy Me a Coffee" (Link in der App). Spenden sind komplett freiwillig und haben keinen Einfluss auf die Funktionalität.
+Falls dir die App gefällt, freue ich mich über eine kleine Unterstützung via "Buy Me a Coffee" (Link auf der Support-Seite). Spenden sind komplett freiwillig und haben keinen Einfluss auf die Funktionalität.
 
 ### 📋 Technische Details
 
@@ -60,9 +62,15 @@ Falls dir die App gefällt, freue ich mich über eine kleine Unterstützung via 
 
 ---
 
-**Version 1.31** - Optimiertes Hilfe-Menü und weitere Verbesserungen.
+**Version 1.31** - Massive Performance-Verbesserungen:
+• Scan-Geschwindigkeit um 80% erhöht (254 IPs in ~2 Min statt 10+ Min)
+• Intelligente Host-Discovery findet jetzt auch Geräte ohne offene Ports
+• Live-Status zeigt aktuell gescannte IP und Anzahl gefundener Geräte
+• macOS: App Sandbox entfernt für volle Netzwerk-Scan-Funktionalität
+• Optimierte Port-Discovery-Strategie mit Early Exit
+• Entfernung des Buy Me a Coffee Links aus der App (bleibt auf Support-Seite)
 
-© 2024 Thorsten Albers
+© 2024-2026 Thorsten Albers
 
 ## Keywords (100 Zeichen max)
 Netzwerk,Scanner,IP,Port,LAN,Scan,Geräte,Network,Tools,DNS,MAC,Hostname,OUI,Ping,Discovery

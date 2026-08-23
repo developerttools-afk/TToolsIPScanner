@@ -143,6 +143,15 @@ extension NetworkScanner {
         print("🚀 Starting scan on \(baseIP).0/24 (\(totalIPs) IPs)")
         
         #if os(iOS)
+        // Start Bonjour discovery in parallel
+        let bonjourScanner = BonjourScanner()
+        Task {
+            let bonjourHosts = await bonjourScanner.scanNetwork(timeout: 5.0)
+            print("📡 Bonjour found \(bonjourHosts.count) hosts: \(bonjourHosts)")
+        }
+        #endif
+        
+        #if os(iOS)
         // Request permission explicitly before scan
         LocalNetworkAccess.requestIfNeeded()
         // Give iOS time to process permission

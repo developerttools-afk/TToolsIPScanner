@@ -161,10 +161,10 @@ extension NetworkScanner {
                     }
                     
                     // Phase 1: lightweight discovery only (fixed ports)
-                    let foundPorts = self.probeOpenDiscoveryPorts(ip)
+                    let (isAlive, foundPorts) = self.discoverHost(ip)
                     
                     var newDevice: DeviceInfo?
-                    if !foundPorts.isEmpty {
+                    if isAlive {
                         let status = DeviceStatusResolver.status(for: ip, previousIPs: previousDevices)
                         let cached = cachedDetails[ip]
                         let remembered = await self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
@@ -183,7 +183,7 @@ extension NetworkScanner {
                         )
                     }
                     
-                    return (i, ip, foundPorts.isEmpty ? nil : foundPorts, newDevice)
+                    return (i, ip, isAlive ? foundPorts : nil, newDevice)
                 }
             }
             

@@ -1,25 +1,42 @@
 import Foundation
 
 extension NetworkScanner {
-    /// TCP connect probe used for host discovery and port scanning.
-    nonisolated internal func isHostReachable(_ ip: String) -> Bool {
-        !probeOpenDiscoveryPorts(ip).isEmpty
-    }
-    
-    /// Lightweight host discovery — only a small fixed port set, stops early once the host is up.
-    nonisolated internal func probeOpenDiscoveryPorts(_ ip: String) -> [Int] {
-        var open: [Int] = []
+    /// Returns (isHostAlive, openPorts) - Host is alive if ANY port responds (even if closed)
+    nonisolated internal func discoverHost(_ ip: String) -> (isAlive: Bool, openPorts: [Int]) {
+        var isAlive = false
+        var openPorts: [Int] = []
+        
         for port in NetworkConstants.discoveryPorts {
-            if isPortOpen(ip: ip, port: port, timeout: NetworkConstants.discoveryTimeout) {
-                open.append(port)
-                print("🎯 DEBUG: Found open port \(port) on \(ip)")
-                if open.count >= 2 { break }
+            let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: NetworkConstants.discoveryTimeout)
+            
+            if hostAlive {
+                isAlive = true
+                if portOpen {
+                    openPorts.append(port)
+                    print("🎯 DEBUG: Found open port \(port) on \(ip)")
+                }
+                // Stop early once we know host is alive and have found some open ports
+                if openPorts.count >= 2 { break }
             }
         }
-        if open.isEmpty {
-            print("⚠️  DEBUG: No open ports found on \(ip)")
+        
+        if isAlive && openPorts.isEmpty {
+            print("✅ DEBUG: Host \(ip) is alive but no open ports found")
+        } else if !isAlive {
+            print("⚠️  DEBUG: No response from \(ip)")
         }
-        return open
+        
+        return (isAlive, openPorts)
+    }
+    
+    /// Legacy compatibility - now checks if host is alive (not just open ports)
+    nonisolated internal func isHostReachable(_ ip: String) -> Bool {
+        discoverHost(ip).isAlive
+    }
+    
+    /// Legacy compatibility - returns open ports
+    nonisolated internal func probeOpenDiscoveryPorts(_ ip: String) -> [Int] {
+        discoverHost(ip).openPorts
     }
     
     /// Tests every given port and returns those that are open (no early exit).
@@ -37,9 +54,10 @@ extension NetworkScanner {
         return open
     }
     
-    nonisolated internal func isPortOpen(ip: String, port: Int, timeout: TimeInterval) -> Bool {
+    /// Returns (isHostAlive, isPortOpen)
+    nonisolated internal func probeHost(ip: String, port: Int, timeout: TimeInterval) -> (Bool, Bool) {
         let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
-        guard socket >= 0 else { return false }
+        guard socket >= 0 else { return (false, false) }
         
         var linger = linger(l_onoff: 1, l_linger: 0)
         _ = setsockopt(
@@ -67,7 +85,7 @@ extension NetworkScanner {
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = UInt16(port).bigEndian
-        guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { return false }
+        guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { return (false, false) }
         
         let flags = fcntl(socket, F_GETFL, 0)
         _ = fcntl(socket, F_SETFL, flags | O_NONBLOCK)
@@ -79,10 +97,15 @@ extension NetworkScanner {
         }
         
         if result == 0 {
-            return true
+            return (true, true) // Connected immediately - host alive, port open
         }
         
-        guard errno == EINPROGRESS else { return false }
+        // ECONNREFUSED = host is alive but port is closed
+        if errno == ECONNREFUSED {
+            return (true, false)
+        }
+        
+        guard errno == EINPROGRESS else { return (false, false) }
         
         var fds = fd_set()
         let seconds = Int(timeout)
@@ -92,13 +115,25 @@ extension NetworkScanner {
         __darwin_fd_set(socket, &fds)
         
         let selectResult = select(socket + 1, nil, &fds, nil, &tv)
-        guard selectResult > 0 else { return false }
+        guard selectResult > 0 else { return (false, false) }
         
         var error: Int32 = 0
         var len = socklen_t(MemoryLayout<Int32>.size)
         guard getsockopt(socket, SOL_SOCKET, SO_ERROR, &error, &len) == 0 else {
-            return false
+            return (false, false)
         }
-        return error == 0
+        
+        if error == 0 {
+            return (true, true) // Connection succeeded - host alive, port open
+        } else if error == ECONNREFUSED {
+            return (true, false) // Connection refused - host alive, port closed
+        } else {
+            return (false, false) // Other error - likely no host
+        }
+    }
+    
+    nonisolated internal func isPortOpen(ip: String, port: Int, timeout: TimeInterval) -> Bool {
+        let (_, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
+        return portOpen
     }
 }

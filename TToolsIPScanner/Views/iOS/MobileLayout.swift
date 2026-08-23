@@ -54,11 +54,14 @@ struct MobileLayout: View {
                     Button(action: { withAnimation { networkInfoExpanded.toggle() } }) {
                         HStack {
                             Text("Aktuelles Netzwerk")
+                                .font(.headline)
                             Spacer()
                             Image(systemName: networkInfoExpanded ? "chevron.down" : "chevron.right")
-                                .font(.caption)
+                                .font(.body)
                                 .foregroundStyle(.secondary)
                         }
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -77,11 +80,14 @@ struct MobileLayout: View {
                     Button(action: { withAnimation { scanSettingsExpanded.toggle() } }) {
                         HStack {
                             Text("Scan-Einstellungen")
+                                .font(.headline)
                             Spacer()
                             Image(systemName: scanSettingsExpanded ? "chevron.down" : "chevron.right")
-                                .font(.caption)
+                                .font(.body)
                                 .foregroundStyle(.secondary)
                         }
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }

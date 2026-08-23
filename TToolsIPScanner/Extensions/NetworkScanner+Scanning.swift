@@ -160,7 +160,7 @@ extension NetworkScanner {
             inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr)
             
             let flags = fcntl(testSock, F_GETFL, 0)
-            fcntl(testSock, F_SETFL, flags | O_NONBLOCK)
+            _ = fcntl(testSock, F_SETFL, flags | O_NONBLOCK)
             
             let result = withUnsafePointer(to: addr) { ptr in
                 ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in

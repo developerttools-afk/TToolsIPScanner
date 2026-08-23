@@ -44,6 +44,13 @@ extension NetworkScanner {
             }
         }
         
+        // FALLBACK: Try UDP echo probe for stubborn firewalled hosts
+        // Many routers/gateways filter all TCP but respond to UDP
+        if tryUDPProbe(ip: ip) {
+            print("💡 \(ip) found via UDP probe (TCP all filtered)")
+            return (true, []) // Host alive but no TCP ports open
+        }
+        
         // No response on any port - host is down
         return (false, [])
     }
@@ -154,5 +161,56 @@ extension NetworkScanner {
     nonisolated internal func isPortOpen(ip: String, port: Int, timeout: TimeInterval) -> Bool {
         let (_, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
         return portOpen
+    }
+    
+    /// UDP probe for hosts that filter all TCP ports
+    /// Sends UDP to common ports and checks for ICMP Port Unreachable (means host is alive)
+    nonisolated private func tryUDPProbe(_ ip: String) -> Bool {
+        let sock = Darwin.socket(AF_INET, SOCK_DGRAM, 0)
+        guard sock >= 0 else { return false }
+        defer { Darwin.close(sock) }
+        
+        // Set non-blocking and timeout
+        let flags = fcntl(sock, F_GETFL, 0)
+        _ = fcntl(sock, F_SETFL, flags | O_NONBLOCK)
+        
+        var tv = timeval(tv_sec: 0, tv_usec: 100_000) // 0.1s
+        _ = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        
+        // Try UDP to common ports: 53 (DNS), 123 (NTP), 67 (DHCP)
+        let udpPorts: [UInt16] = [53, 123, 67]
+        
+        for port in udpPorts {
+            var addr = sockaddr_in()
+            addr.sin_family = sa_family_t(AF_INET)
+            addr.sin_port = port.bigEndian
+            guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { continue }
+            
+            // Send empty UDP packet
+            let sent = withUnsafePointer(to: addr) { ptr in
+                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
+                    Darwin.sendto(sock, "", 0, 0, sockAddr, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            
+            if sent >= 0 {
+                // If we get ICMP Port Unreachable, the host is alive
+                // recvfrom will fail with ECONNREFUSED if host responded with ICMP
+                var buf = [UInt8](repeating: 0, count: 1)
+                var addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+                let received = withUnsafeMutablePointer(to: &addr) { ptr in
+                    ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
+                        Darwin.recvfrom(sock, &buf, 1, 0, sockAddr, &addrLen)
+                    }
+                }
+                
+                // ECONNREFUSED means we got ICMP Port Unreachable = host is alive!
+                if received < 0 && errno == ECONNREFUSED {
+                    return true
+                }
+            }
+        }
+        
+        return false
     }
 }

@@ -147,8 +147,38 @@ extension NetworkScanner {
         LocalNetworkAccess.requestIfNeeded()
         // Give iOS time to process permission
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-        print("⚠️ iOS: Local Network Permission MUST be granted in Settings!")
-        print("⚠️ Check: Settings → TTools IP Scanner → Local Network → ON")
+        
+        // DIRECT TEST: Try connecting to well-known public DNS
+        print("🧪 DIRECT SOCKET TEST:")
+        let testSock = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        if testSock < 0 {
+            print("❌ socket() FAILED: \(String(cString: strerror(errno)))")
+        } else {
+            var addr = sockaddr_in()
+            addr.sin_family = sa_family_t(AF_INET)
+            addr.sin_port = UInt16(53).bigEndian
+            inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr)
+            
+            let flags = fcntl(testSock, F_GETFL, 0)
+            fcntl(testSock, F_SETFL, flags | O_NONBLOCK)
+            
+            let result = withUnsafePointer(to: addr) { ptr in
+                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
+                    Darwin.connect(testSock, sockAddr, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            
+            print("✅ socket() OK, connect() = \(result), errno = \(errno) (\(String(cString: strerror(errno))))")
+            Darwin.close(testSock)
+        }
+        
+        // Test gateway directly
+        print("🧪 TESTING GATEWAY \(baseIP).1 directly:")
+        let (gw_alive, gw_open) = self.probeHost(ip: "\(baseIP).1", port: 80, timeout: 1.0)
+        print("   → Port 80: alive=\(gw_alive), open=\(gw_open)")
+        
+        print("⚠️ iOS: Local Network Permission status: CHECK IN SETTINGS")
+        print("⚠️ Settings → TTools IP Scanner → Local Network → Should be ON")
         #endif
         
         await updateScanState(

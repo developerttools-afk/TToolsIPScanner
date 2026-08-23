@@ -193,24 +193,24 @@ extension NetworkScanner {
                 
                 if let device = device {
                     foundCount += 1
+                    // IMMEDIATE UI update - no batching for found devices
                     await MainActor.run {
                         self.devices.append(device)
                         self.currentScanIP = ip
-                        self.scanProgress = "Prüfe \(ip)... (\(foundCount) gefunden)"
-                    }
-                } else {
-                    // Update progress every 5 IPs for non-found devices (more frequent)
-                    if completedCount % 5 == 0 {
-                        await MainActor.run {
-                            self.currentScanIP = ip
-                            self.scanProgress = "Prüfe \(ip)... (\(foundCount) gefunden)"
-                        }
+                        self.scanProgress = "\(foundCount) Gerät(e) gefunden"
                     }
                 }
                 
                 completedCount += 1
-                // Update percentage more frequently
-                if completedCount % 5 == 0 || device != nil {
+                
+                // Update progress every 10 IPs (less UI thrashing)
+                if completedCount % 10 == 0 || device != nil {
+                    await MainActor.run {
+                        self.currentScanIP = ip
+                        if device == nil {
+                            self.scanProgress = "Scanne \(completedCount)/\(totalIPs)... (\(foundCount) gefunden)"
+                        }
+                    }
                     await updateScanState(percentage: Double(completedCount) * 100.0 / Double(totalIPs))
                 }
             }

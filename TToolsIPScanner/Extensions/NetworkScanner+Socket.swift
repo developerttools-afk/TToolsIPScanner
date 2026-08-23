@@ -2,43 +2,67 @@ import Foundation
 
 extension NetworkScanner {
     /// Returns (isHostAlive, openPorts) - Host is alive if ANY port responds (even if closed)
-    /// Probes first 6 ports for reliable host detection, then exits on first response
+    /// Fast parallel probe with early exit for maximum speed
     nonisolated internal func discoverHost(_ ip: String) -> (isAlive: Bool, openPorts: [Int]) {
         let timeout = NetworkConstants.discoveryTimeout
+        
+        // Use DispatchGroup for true parallel probing (not async/await to avoid overhead)
+        let group = DispatchGroup()
+        let queue = DispatchQueue(label: "scanner.probe.\(ip)", attributes: .concurrent)
+        let lock = NSLock()
+        
         var isAlive = false
         var openPorts: [Int] = []
+        var stopProbing = false
         
-        // Probe first 6 common ports thoroughly (covers most scenarios)
-        // Gateway/Router typically have: 53 (DNS), 80 (Web), 443 (HTTPS), or respond with RST on any
-        let primaryPorts = Array(NetworkConstants.discoveryPorts.prefix(6))
+        // Probe first 4 most common ports in parallel
+        let primaryPorts = Array(NetworkConstants.discoveryPorts.prefix(4))
         
         for port in primaryPorts {
-            let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
-            
-            if hostAlive {
-                isAlive = true
-                if portOpen {
-                    openPorts.append(port)
-                }
-                // Found host - continue checking remaining primary ports for more open ports
-                // This ensures we find at least 1-2 open ports for better identification
-            }
-        }
-        
-        // If host is alive, check a few more ports for completeness
-        if isAlive && openPorts.count < 2 {
-            for port in NetworkConstants.discoveryPorts.dropFirst(6).prefix(4) {
-                let (_, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
-                if portOpen {
-                    openPorts.append(port)
-                    if openPorts.count >= 2 {
-                        break
+            group.enter()
+            queue.async {
+                defer { group.leave() }
+                
+                // Check if we should stop (host already found with open port)
+                lock.lock()
+                let shouldStop = stopProbing
+                lock.unlock()
+                
+                if shouldStop { return }
+                
+                let (hostAlive, portOpen) = self.probeHost(ip: ip, port: port, timeout: timeout)
+                
+                lock.lock()
+                if hostAlive {
+                    isAlive = true
+                    if portOpen {
+                        openPorts.append(port)
+                        // Early exit: found open port, stop other probes
+                        stopProbing = true
                     }
                 }
+                lock.unlock()
             }
         }
         
-        return (isAlive, openPorts)
+        // Wait max 0.8s for all parallel probes (4 × 0.15s = 0.6s theoretical)
+        _ = group.wait(timeout: .now() + 0.8)
+        
+        // If no response yet, try 2 more ports sequentially
+        if !isAlive {
+            for port in NetworkConstants.discoveryPorts.dropFirst(4).prefix(2) {
+                let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
+                if hostAlive {
+                    isAlive = true
+                    if portOpen {
+                        openPorts.append(port)
+                    }
+                    break // Found host, stop
+                }
+            }
+        }
+        
+        return (isAlive, openPorts.sorted())
     }
     
     /// Legacy compatibility - now checks if host is alive (not just open ports)

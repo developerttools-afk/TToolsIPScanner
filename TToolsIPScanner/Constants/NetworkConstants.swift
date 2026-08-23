@@ -122,12 +122,8 @@ enum NetworkConstants {
         53,           // DNS
         1883          // MQTT
     ]
-    #if os(iOS)
-    /// Slightly longer on cellular/Wi‑Fi radios where RTT is higher.
-    static let discoveryTimeout: TimeInterval = 0.4
-    #else
-    /// 0.3s for reliable detection on LAN - balances speed and accuracy
-    /// Routers/Gateways may have higher response times than regular hosts
-    static let discoveryTimeout: TimeInterval = 0.3
-    #endif
+    /// Fast timeout for LAN discovery - both iOS and macOS
+    /// LAN RTT is typically <5ms, even on Wi-Fi
+    /// 0.15s is enough for local network, much faster scanning
+    static let discoveryTimeout: TimeInterval = 0.15
 } 

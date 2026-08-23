@@ -12,30 +12,23 @@ extension NetworkScanner {
         let ipToScan = baseIP ?? currentNetwork
         scanError = nil
         
-        print("🔍 DEBUG: startScan called with baseIP: \(baseIP ?? "nil"), currentNetwork: \(currentNetwork), mode: \(mode)")
-        
         // Validiere IP-Adresse
         guard IPAddressValidator.isValidIPv4(ipToScan) else {
-            print("❌ DEBUG: Invalid IP address: \(ipToScan)")
             scanError = .invalidIPAddress(ipToScan)
             return
         }
         
         // Prüfe ob bereits ein Scan läuft
         guard !isScanning else {
-            print("❌ DEBUG: Scan already running")
             scanError = .scanAlreadyRunning
             return
         }
         
         // Prüfe ob Ports konfiguriert sind
         guard !customPorts.isEmpty || mode == .fullScan else {
-            print("❌ DEBUG: No ports specified. customPorts.count: \(customPorts.count)")
             scanError = .noPortsSpecified
             return
         }
-        
-        print("✅ DEBUG: Starting scan on \(ipToScan), ports: \(customPorts.count)")
         
         preferredScanMode = mode
         currentNetwork = ipToScan
@@ -147,18 +140,20 @@ extension NetworkScanner {
         
         let discoveryHits = ResolutionStore<String, [Int]>()
         
-        print("🚀 DEBUG: Starting TaskGroup scan for \(totalIPs) IPs on base \(baseIP)")
+        await updateScanState(
+            progress: "Starte Scan von \(totalIPs) IPs auf \(baseIP).0/24…",
+            percentage: 0
+        )
         
-        // Use TaskGroup for structured concurrency
+        // Use TaskGroup with higher concurrency for faster scanning
         await withTaskGroup(of: (Int, String, [Int]?, DeviceInfo?).self) { group in
             for i in 1...totalIPs {
+                // Let Swift's cooperative task pool handle concurrency
+                // Typically runs 50-100 tasks in parallel on modern hardware
                 group.addTask {
                     guard !Task.isCancelled else { return (i, "", nil, nil) }
                     
                     let ip = "\(baseIP).\(i)"
-                    if i == 1 {
-                        print("🔎 DEBUG: Scanning first IP: \(ip)")
-                    }
                     
                     // Phase 1: lightweight discovery only (fixed ports)
                     let (isAlive, foundPorts) = self.discoverHost(ip)
@@ -188,6 +183,7 @@ extension NetworkScanner {
             }
             
             var completedCount = 0
+            var foundCount = 0
             for await (_, ip, foundPorts, device) in group {
                 guard !Task.isCancelled else { break }
                 
@@ -196,9 +192,19 @@ extension NetworkScanner {
                 }
                 
                 if let device = device {
+                    foundCount += 1
                     await MainActor.run {
                         self.devices.append(device)
-                        self.scanProgress = "IP gefunden: \(ip)"
+                        self.currentScanIP = ip
+                        self.scanProgress = "Prüfe \(ip)... (\(foundCount) gefunden)"
+                    }
+                } else {
+                    // Update progress every 10 IPs for non-found devices
+                    if completedCount % 10 == 0 {
+                        await MainActor.run {
+                            self.currentScanIP = ip
+                            self.scanProgress = "Prüfe \(ip)... (\(foundCount) gefunden)"
+                        }
                     }
                 }
                 

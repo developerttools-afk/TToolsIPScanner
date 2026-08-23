@@ -2,28 +2,54 @@ import Foundation
 
 extension NetworkScanner {
     /// Returns (isHostAlive, openPorts) - Host is alive if ANY port responds (even if closed)
+    /// Probes multiple ports in parallel for faster discovery
     nonisolated internal func discoverHost(_ ip: String) -> (isAlive: Bool, openPorts: [Int]) {
+        let timeout = NetworkConstants.discoveryTimeout
         var isAlive = false
         var openPorts: [Int] = []
         
-        for port in NetworkConstants.discoveryPorts {
-            let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: NetworkConstants.discoveryTimeout)
-            
-            if hostAlive {
-                isAlive = true
-                if portOpen {
-                    openPorts.append(port)
-                    print("🎯 DEBUG: Found open port \(port) on \(ip)")
+        // Probe first 4 ports in parallel for fast initial response
+        let fastPorts = Array(NetworkConstants.discoveryPorts.prefix(4))
+        let group = DispatchGroup()
+        let lock = NSLock()
+        
+        for port in fastPorts {
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                let (hostAlive, portOpen) = self.probeHost(ip: ip, port: port, timeout: timeout)
+                lock.lock()
+                if hostAlive {
+                    isAlive = true
+                    if portOpen {
+                        openPorts.append(port)
+                    }
                 }
-                // Stop early once we know host is alive and have found some open ports
-                if openPorts.count >= 2 { break }
+                lock.unlock()
+                group.leave()
             }
         }
         
-        if isAlive && openPorts.isEmpty {
-            print("✅ DEBUG: Host \(ip) is alive but no open ports found")
-        } else if !isAlive {
-            print("⚠️  DEBUG: No response from \(ip)")
+        // Wait for fast probes (should complete quickly if host is up)
+        _ = group.wait(timeout: .now() + timeout + 0.1)
+        
+        // If host is alive and we have ports, return early
+        if isAlive && openPorts.count >= 2 {
+            return (isAlive, openPorts)
+        }
+        
+        // If still no response, try remaining ports sequentially
+        if !isAlive {
+            for port in NetworkConstants.discoveryPorts.dropFirst(4) {
+                let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
+                
+                if hostAlive {
+                    isAlive = true
+                    if portOpen {
+                        openPorts.append(port)
+                    }
+                    break // Found host, stop searching
+                }
+            }
         }
         
         return (isAlive, openPorts)

@@ -66,13 +66,13 @@ extension NetworkScanner {
     
     /// Discover a host using modern NWConnection API
     /// Probes critical ports in parallel, returns as soon as one responds
-    nonisolated func discoverHostModern(ip: String) async -> (Bool, [UInt16]) {
+    nonisolated func discoverHostModern(ip: String) async -> (Bool, [Int]) {
         // Fast discovery: probe most common ports in parallel
         let criticalPorts: [UInt16] = [80, 443, 22]
         
         return await withTaskGroup(of: (UInt16, Bool, Bool, TimeInterval?).self) { group in
             var isAlive = false
-            var openPorts: [UInt16] = []
+            var openPorts: [Int] = []
             
             // Start all probes in parallel
             for port in criticalPorts {
@@ -88,7 +88,7 @@ extension NetworkScanner {
                     isAlive = true
                 }
                 if open {
-                    openPorts.append(port)
+                    openPorts.append(Int(port))
                 }
             }
             

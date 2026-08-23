@@ -157,11 +157,24 @@ extension NetworkScanner {
             percentage: 0
         )
         
-        // Use TaskGroup with higher concurrency for faster scanning
+        // Use TaskGroup with CONNECTION LIMITING for iOS
+        // iOS can only handle ~50 concurrent NWConnection objects before running out of memory
         await withTaskGroup(of: (Int, String, [Int]?, DeviceInfo?).self) { group in
-            for i in 1...totalIPs {
-                // Let Swift's cooperative task pool handle concurrency
-                // Typically runs 50-100 tasks in parallel on modern hardware
+            #if os(iOS)
+            let maxConcurrentScans = 30 // Conservative limit for iOS
+            #else
+            let maxConcurrentScans = 100 // macOS can handle more
+            #endif
+            
+            var nextIP = 1
+            var activeScans = 0
+            
+            // Start initial batch
+            while nextIP <= totalIPs && activeScans < maxConcurrentScans {
+                let i = nextIP
+                nextIP += 1
+                activeScans += 1
+                
                 group.addTask {
                     guard !Task.isCancelled else { return (i, "", nil, nil) }
                     
@@ -204,6 +217,46 @@ extension NetworkScanner {
             var foundCount = 0
             for await (_, ip, foundPorts, device) in group {
                 guard !Task.isCancelled else { break }
+                
+                // Start next scan (connection limiting)
+                if nextIP <= totalIPs {
+                    let i = nextIP
+                    nextIP += 1
+                    
+                    group.addTask {
+                        guard !Task.isCancelled else { return (i, "", nil, nil) }
+                        
+                        let ip = "\(baseIP).\(i)"
+                        
+                        #if os(iOS)
+                        let (isAlive, foundPorts) = await self.discoverHostModern(ip: ip)
+                        #else
+                        let (isAlive, foundPorts) = self.discoverHost(ip)
+                        #endif
+                        
+                        var newDevice: DeviceInfo?
+                        if isAlive {
+                            let status = DeviceStatusResolver.status(for: ip, previousIPs: previousDevices)
+                            let cached = cachedDetails[ip]
+                            let remembered = await self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
+                            
+                            newDevice = DeviceInfo(
+                                id: UUID(),
+                                ipAddress: ip,
+                                hostName: remembered
+                                    ?? cached.flatMap { self.usefulHostName($0.hostName) }
+                                    ?? "…",
+                                macAddress: cached?.macAddress ?? "",
+                                manufacturer: cached?.manufacturer ?? "",
+                                openPorts: foundPorts,
+                                status: status,
+                                isExpanded: false
+                            )
+                        }
+                        
+                        return (i, ip, isAlive ? foundPorts : nil, newDevice)
+                    }
+                }
                 
                 if let foundPorts = foundPorts {
                     discoveryHits.set(foundPorts, for: ip)

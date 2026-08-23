@@ -8,7 +8,6 @@ struct MobileLayout: View {
     @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
     @State private var showAbout = false
-    @State private var showAPWarning = false
     @State private var networkInfoExpanded = true
     @State private var scanSettingsExpanded = true
     
@@ -227,9 +226,6 @@ struct MobileLayout: View {
                 NavigationStack {
                     AboutView()
                 }
-            }
-            .sheet(isPresented: $showAPWarning) {
-                APWarningView(isPresented: $showAPWarning)
             }
         }
     }

@@ -8,6 +8,8 @@ struct MobileLayout: View {
     @State private var showDNSCacheSettings = false
     @State private var showUserGuide = false
     @State private var showAbout = false
+    @State private var networkInfoExpanded = true
+    @State private var scanSettingsExpanded = true
     
     private var fullScanBinding: Binding<Bool> {
         Binding(
@@ -20,17 +22,68 @@ struct MobileLayout: View {
         scanner.devices.filter { $0.status != .missing }.count
     }
     
+    private func sortHeaderButton(for option: SortOption, label: String) -> some View {
+        Button(action: {
+            if scanner.sortOption == option {
+                scanner.sortAscending.toggle()
+            } else {
+                scanner.sortOption = option
+                scanner.sortAscending = true
+            }
+        }) {
+            HStack(spacing: 2) {
+                Text(label)
+                if scanner.sortOption == option {
+                    Image(systemName: scanner.sortAscending ? "chevron.up" : "chevron.down")
+                        .font(.caption2)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+    
     var body: some View {
         NavigationStack {
             List {
+                // Collapsible: Aktuelles Netzwerk
                 Section {
-                    VStack(alignment: .leading, spacing: 10) {
+                    if networkInfoExpanded {
                         NetworkInputView(scanner: scanner)
-                        Toggle("Vollständiger Port-Scan", isOn: fullScanBinding)
-                            .disabled(scanner.isScanning)
-                        ScanButton(scanner: scanner)
                     }
-                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                } header: {
+                    Button(action: { withAnimation { networkInfoExpanded.toggle() } }) {
+                        HStack {
+                            Text("Aktuelles Netzwerk")
+                            Spacer()
+                            Image(systemName: networkInfoExpanded ? "chevron.down" : "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Collapsible: Scan-Einstellungen
+                Section {
+                    if scanSettingsExpanded {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Toggle("Vollständiger Port-Scan", isOn: fullScanBinding)
+                                .disabled(scanner.isScanning)
+                            ScanButton(scanner: scanner)
+                        }
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    }
+                } header: {
+                    Button(action: { withAnimation { scanSettingsExpanded.toggle() } }) {
+                        HStack {
+                            Text("Scan-Einstellungen")
+                            Spacer()
+                            Image(systemName: scanSettingsExpanded ? "chevron.down" : "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
                 
                 if scanner.isScanning || scanner.scanPhase == .finished {
@@ -39,27 +92,20 @@ struct MobileLayout: View {
                     }
                 }
                 
+                // Sortierung durch Tap auf Header
                 Section {
-                    HStack(spacing: 12) {
-                        Picker("Sortieren nach", selection: $scanner.sortOption) {
-                            ForEach(SortOption.allCases, id: \.self) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        
-                        Menu {
-                            Button(action: { scanner.sortAscending = true }) {
-                                Label("Aufsteigend", systemImage: "arrow.up")
-                            }
-                            Button(action: { scanner.sortAscending = false }) {
-                                Label("Absteigend", systemImage: "arrow.down")
-                            }
-                        } label: {
-                            Image(systemName: scanner.sortAscending ? "arrow.up" : "arrow.down")
-                                .frame(width: 32, height: 32)
-                        }
-                        .buttonStyle(.bordered)
+                    HStack(spacing: 4) {
+                        sortHeaderButton(for: .ip, label: "IP")
+                        Spacer()
+                        sortHeaderButton(for: .hostName, label: "Hostname")
+                        Spacer()
+                        sortHeaderButton(for: .manufacturer, label: "Hersteller")
+                        Spacer()
+                        sortHeaderButton(for: .status, label: "Status")
                     }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
                 }
                 
                 Section {

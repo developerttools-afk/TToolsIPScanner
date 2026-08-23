@@ -2,16 +2,17 @@ import Foundation
 
 extension NetworkScanner {
     /// Returns (isHostAlive, openPorts) - Host is alive if ANY port responds (even if closed)
-    /// Fast sequential probe with early exit for maximum speed
+    /// Probes first 6 ports for reliable host detection, then exits on first response
     nonisolated internal func discoverHost(_ ip: String) -> (isAlive: Bool, openPorts: [Int]) {
         let timeout = NetworkConstants.discoveryTimeout
         var isAlive = false
         var openPorts: [Int] = []
         
-        // Probe ports sequentially with early exit
-        // This is actually faster than parallel when most hosts are down
-        // because we avoid overhead and can exit immediately
-        for port in NetworkConstants.discoveryPorts {
+        // Probe first 6 common ports thoroughly (covers most scenarios)
+        // Gateway/Router typically have: 53 (DNS), 80 (Web), 443 (HTTPS), or respond with RST on any
+        let primaryPorts = Array(NetworkConstants.discoveryPorts.prefix(6))
+        
+        for port in primaryPorts {
             let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
             
             if hostAlive {
@@ -19,20 +20,21 @@ extension NetworkScanner {
                 if portOpen {
                     openPorts.append(port)
                 }
-                // Fast exit: once we know host is alive, we're done
-                // Only continue if we haven't found any open ports yet
-                if !openPorts.isEmpty {
-                    break
-                }
-            } else if isAlive {
-                // Host was alive on previous port but not this one
-                // This shouldn't happen but handle it
-                break
+                // Found host - continue checking remaining primary ports for more open ports
+                // This ensures we find at least 1-2 open ports for better identification
             }
-            
-            // If we probed 3 ports without any response, host is likely down - skip remaining ports
-            if !isAlive && port == NetworkConstants.discoveryPorts[min(2, NetworkConstants.discoveryPorts.count - 1)] {
-                break
+        }
+        
+        // If host is alive, check a few more ports for completeness
+        if isAlive && openPorts.count < 2 {
+            for port in NetworkConstants.discoveryPorts.dropFirst(6).prefix(4) {
+                let (_, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
+                if portOpen {
+                    openPorts.append(port)
+                    if openPorts.count >= 2 {
+                        break
+                    }
+                }
             }
         }
         

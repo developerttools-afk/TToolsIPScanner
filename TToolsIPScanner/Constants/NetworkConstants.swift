@@ -124,10 +124,10 @@ enum NetworkConstants {
     ]
     #if os(iOS)
     /// Slightly longer on cellular/Wi‑Fi radios where RTT is higher.
-    static let discoveryTimeout: TimeInterval = 0.3
+    static let discoveryTimeout: TimeInterval = 0.4
     #else
-    /// Reduced to 0.2s for faster scanning on LAN (RTT typically <1ms)
-    /// Non-existent hosts will timeout quickly, alive hosts respond immediately
-    static let discoveryTimeout: TimeInterval = 0.2
+    /// 0.3s for reliable detection on LAN - balances speed and accuracy
+    /// Routers/Gateways may have higher response times than regular hosts
+    static let discoveryTimeout: TimeInterval = 0.3
     #endif
 } 

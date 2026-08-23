@@ -1,6 +1,28 @@
 import Foundation
 import Network
 
+// Thread-safe box for state tracking in NWConnection callbacks
+private final class StateBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _hasReturned = false
+    
+    var hasReturned: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _hasReturned
+    }
+    
+    func markReturned() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if !_hasReturned {
+            _hasReturned = true
+            return true
+        }
+        return false
+    }
+}
+
 // MARK: - Modern Network.framework based scanning (iOS optimized)
 extension NetworkScanner {
     
@@ -18,63 +40,47 @@ extension NetworkScanner {
             let port = NWEndpoint.Port(integerLiteral: port)
             let connection = NWConnection(host: host, port: port, using: .tcp)
             
-            // Thread-safe state tracking with NSLock
-            let stateLock = NSLock()
-            var hasReturned = false
+            // Thread-safe state tracking
+            let stateBox = StateBox()
             
             let timeoutTask = Task {
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                stateLock.lock()
-                let shouldReturn = !hasReturned
-                if shouldReturn {
-                    hasReturned = true
-                }
-                stateLock.unlock()
-                
-                if shouldReturn {
+                if stateBox.markReturned() {
                     connection.cancel()
                     continuation.resume(returning: (false, false, nil))
                 }
             }
             
             connection.stateUpdateHandler = { state in
-                stateLock.lock()
-                let shouldHandle = !hasReturned
-                stateLock.unlock()
-                
-                guard shouldHandle else { return }
+                guard !stateBox.hasReturned else { return }
                 
                 switch state {
                 case .ready:
                     // Connection successful - host is alive AND port is open
-                    stateLock.lock()
-                    hasReturned = true
-                    stateLock.unlock()
-                    
-                    timeoutTask.cancel()
-                    let rtt = Date().timeIntervalSince(startTime)
-                    connection.cancel()
-                    continuation.resume(returning: (true, true, rtt))
+                    if stateBox.markReturned() {
+                        timeoutTask.cancel()
+                        let rtt = Date().timeIntervalSince(startTime)
+                        connection.cancel()
+                        continuation.resume(returning: (true, true, rtt))
+                    }
                     
                 case .failed(let error):
                     // Connection failed - but we need to distinguish why
-                    stateLock.lock()
-                    hasReturned = true
-                    stateLock.unlock()
-                    
-                    timeoutTask.cancel()
-                    connection.cancel()
-                    
-                    // Check if connection was refused (host alive but port closed)
-                    // NWError.posix wraps POSIX errors
-                    let isRefused: Bool
-                    if case .posix(let posixCode) = error {
-                        isRefused = (posixCode == .ECONNREFUSED)
-                    } else {
-                        isRefused = false
+                    if stateBox.markReturned() {
+                        timeoutTask.cancel()
+                        connection.cancel()
+                        
+                        // Check if connection was refused (host alive but port closed)
+                        // TCP RST = Connection Refused = Host is ALIVE!
+                        let isAlive: Bool
+                        if case .posix(let posixCode) = error {
+                            isAlive = (posixCode == .ECONNREFUSED)
+                        } else {
+                            isAlive = false
+                        }
+                        
+                        continuation.resume(returning: (isAlive, false, nil))
                     }
-                    
-                    continuation.resume(returning: (isRefused, false, nil))
                     
                 case .cancelled:
                     // Already handled by timeout

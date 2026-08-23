@@ -187,9 +187,12 @@ extension NetworkScanner {
             guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { continue }
             
             // Send empty UDP packet
-            let sent = withUnsafePointer(to: addr) { ptr in
-                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
-                    Darwin.sendto(sock, "", 0, 0, sockAddr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            var dummyByte: UInt8 = 0
+            let sent = withUnsafePointer(to: &dummyByte) { dataPtr in
+                withUnsafePointer(to: addr) { addrPtr in
+                    addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
+                        Darwin.sendto(sock, dataPtr, 1, 0, sockAddr, socklen_t(MemoryLayout<sockaddr_in>.size))
+                    }
                 }
             }
             

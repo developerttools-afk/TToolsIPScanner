@@ -46,7 +46,7 @@ extension NetworkScanner {
         
         // FALLBACK: Try UDP echo probe for stubborn firewalled hosts
         // Many routers/gateways filter all TCP but respond to UDP
-        if tryUDPProbe(ip: ip) {
+        if tryUDPProbe(ip) {
             print("💡 \(ip) found via UDP probe (TCP all filtered)")
             return (true, []) // Host alive but no TCP ports open
         }

@@ -20,6 +20,8 @@
 	</array>
 	<key>NSNetworkingUsageDescription</key>
 	<string>Die App benötigt Netzwerkzugriff, um nach Geräten zu suchen.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     
     var body: some View {
         ScrollView {
@@ -61,44 +60,6 @@ struct AboutView: View {
                     Die App wurde für meinen persönlichen Gebrauch entwickelt.
                     """
                 )
-                
-                Divider()
-                
-                // Support Section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "heart.fill")
-                            .foregroundStyle(.pink)
-                        Text("Unterstützen")
-                            .font(.headline)
-                    }
-                    
-                    Text("Falls dir die App gefällt und du mich unterstützen möchtest:")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    
-                    Button(action: {
-                        if let url = URL(string: "https://buymeacoffee.com/developerttools") {
-                            openURL(url)
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "cup.and.saucer.fill")
-                            Text("Buy Me a Coffee")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Text("Spenden sind komplett freiwillig und haben keinen Einfluss auf die Funktionalität der App.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .italic()
-                }
                 
                 Divider()
                 

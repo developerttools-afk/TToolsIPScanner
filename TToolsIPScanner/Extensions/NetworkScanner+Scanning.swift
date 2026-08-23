@@ -139,148 +139,106 @@ extension NetworkScanner {
         let ouiDB = await MainActor.run { self.ouiDatabase }
         
         let discoveryHits = ResolutionStore<String, [Int]>()
+        var alreadyListed = Set<String>()
         
         #if os(iOS)
-        // Request permission before scan
         LocalNetworkAccess.requestIfNeeded()
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+        await updateScanState(
+            progress: "Suche Geräte (Ping + Bonjour)…",
+            percentage: 2
+        )
         
-        // Start Bonjour discovery in background (iOS only)
         let bonjourScanner = BonjourScanner()
-        Task.detached {
-            _ = await bonjourScanner.scanNetwork(timeout: 2.0)
+        async let bonjourIPs = bonjourScanner.scanNetwork(timeout: 2.5)
+        async let pingIPs = ICMPPinger.sweep(prefix: baseIP, timeout: 1.5)
+        let preFound = await bonjourIPs.union(await pingIPs)
+        
+        for ip in preFound.sorted(by: Self.ipSort) {
+            guard !Task.isCancelled else { return }
+            alreadyListed.insert(ip)
+            discoveryHits.set([], for: ip)
+            let device = await makeDiscoveredDevice(
+                ip: ip,
+                openPorts: [],
+                previousDevices: previousDevices,
+                cachedDetails: cachedDetails
+            )
+            devices.append(device)
+            scanProgress = "\(devices.count) Gerät(e) gefunden"
         }
         #endif
         
         await updateScanState(
-            progress: "Starte Scan von \(totalIPs) IPs auf \(baseIP).0/24…",
-            percentage: 0
+            progress: alreadyListed.isEmpty
+                ? "Starte Scan von \(totalIPs) IPs auf \(baseIP).0/24…"
+                : "\(alreadyListed.count) per Ping/Bonjour — prüfe restliche IPs…",
+            percentage: alreadyListed.isEmpty ? 0 : 20
         )
         
-        // Use TaskGroup with CONNECTION LIMITING for iOS
-        // iOS can only handle ~50 concurrent NWConnection objects before running out of memory
+        #if os(iOS)
+        let maxConcurrentScans = 8
+        #else
+        let maxConcurrentScans = 100
+        #endif
+        
         await withTaskGroup(of: (Int, String, [Int]?, DeviceInfo?).self) { group in
-            #if os(iOS)
-            let maxConcurrentScans = 30 // Conservative limit for iOS
-            #else
-            let maxConcurrentScans = 100 // macOS can handle more
-            #endif
-            
             var nextIP = 1
-            var activeScans = 0
+            let skipIPs = alreadyListed
             
-            // Start initial batch
-            while nextIP <= totalIPs && activeScans < maxConcurrentScans {
-                let i = nextIP
-                nextIP += 1
-                activeScans += 1
-                
+            func enqueue(_ i: Int) {
                 group.addTask {
                     guard !Task.isCancelled else { return (i, "", nil, nil) }
-                    
                     let ip = "\(baseIP).\(i)"
-                    
-                    // Phase 1: lightweight discovery only (fixed ports)
                     #if os(iOS)
-                    // Use modern NWConnection API on iOS (works better with Local Network permission)
+                    if skipIPs.contains(ip) {
+                        return (i, ip, nil, nil)
+                    }
                     let (isAlive, foundPorts) = await self.discoverHostModern(ip: ip)
                     #else
-                    // Use BSD sockets on macOS (faster, no permission issues)
                     let (isAlive, foundPorts) = self.discoverHost(ip)
                     #endif
-                    
-                    var newDevice: DeviceInfo?
-                    if isAlive {
-                        let status = DeviceStatusResolver.status(for: ip, previousIPs: previousDevices)
-                        let cached = cachedDetails[ip]
-                        let remembered = await self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
-                        
-                        newDevice = DeviceInfo(
-                            id: UUID(),
-                            ipAddress: ip,
-                            hostName: remembered
-                                ?? cached.flatMap { self.usefulHostName($0.hostName) }
-                                ?? "…",
-                            macAddress: cached?.macAddress ?? "",
-                            manufacturer: cached?.manufacturer ?? "",
-                            openPorts: foundPorts,
-                            status: status,
-                            isExpanded: false
-                        )
-                    }
-                    
-                    return (i, ip, isAlive ? foundPorts : nil, newDevice)
+                    guard isAlive else { return (i, ip, nil, nil) }
+                    let device = await self.makeDiscoveredDevice(
+                        ip: ip,
+                        openPorts: foundPorts,
+                        previousDevices: previousDevices,
+                        cachedDetails: cachedDetails
+                    )
+                    return (i, ip, foundPorts, device)
                 }
             }
             
+            while nextIP <= totalIPs && nextIP <= maxConcurrentScans {
+                enqueue(nextIP)
+                nextIP += 1
+            }
+            
             var completedCount = 0
-            var foundCount = 0
+            var foundCount = alreadyListed.count
             for await (_, ip, foundPorts, device) in group {
                 guard !Task.isCancelled else { break }
                 
-                // Start next scan (connection limiting)
                 if nextIP <= totalIPs {
-                    let i = nextIP
+                    enqueue(nextIP)
                     nextIP += 1
-                    
-                    group.addTask {
-                        guard !Task.isCancelled else { return (i, "", nil, nil) }
-                        
-                        let ip = "\(baseIP).\(i)"
-                        
-                        #if os(iOS)
-                        let (isAlive, foundPorts) = await self.discoverHostModern(ip: ip)
-                        #else
-                        let (isAlive, foundPorts) = self.discoverHost(ip)
-                        #endif
-                        
-                        var newDevice: DeviceInfo?
-                        if isAlive {
-                            let status = DeviceStatusResolver.status(for: ip, previousIPs: previousDevices)
-                            let cached = cachedDetails[ip]
-                            let remembered = await self.rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
-                            
-                            newDevice = DeviceInfo(
-                                id: UUID(),
-                                ipAddress: ip,
-                                hostName: remembered
-                                    ?? cached.flatMap { self.usefulHostName($0.hostName) }
-                                    ?? "…",
-                                macAddress: cached?.macAddress ?? "",
-                                manufacturer: cached?.manufacturer ?? "",
-                                openPorts: foundPorts,
-                                status: status,
-                                isExpanded: false
-                            )
-                        }
-                        
-                        return (i, ip, isAlive ? foundPorts : nil, newDevice)
-                    }
                 }
                 
-                if let foundPorts = foundPorts {
+                if let foundPorts {
                     discoveryHits.set(foundPorts, for: ip)
                 }
                 
-                if let device = device {
+                if let device, alreadyListed.insert(ip).inserted {
                     foundCount += 1
-                    // IMMEDIATE UI update - no batching for found devices
-                    await MainActor.run {
-                        self.devices.append(device)
-                        self.currentScanIP = ip
-                        self.scanProgress = "\(foundCount) Gerät(e) gefunden"
-                    }
+                    devices.append(device)
+                    currentScanIP = ip
+                    scanProgress = "\(foundCount) Gerät(e) gefunden"
                 }
                 
                 completedCount += 1
-                
-                // Update progress every 10 IPs (less UI thrashing)
                 if completedCount % 10 == 0 || device != nil {
-                    await MainActor.run {
-                        self.currentScanIP = ip
-                        if device == nil {
-                            self.scanProgress = "Scanne \(completedCount)/\(totalIPs)... (\(foundCount) gefunden)"
-                        }
+                    currentScanIP = ip
+                    if device == nil {
+                        scanProgress = "Scanne \(completedCount)/\(totalIPs)… (\(foundCount) gefunden)"
                     }
                     await updateScanState(percentage: Double(completedCount) * 100.0 / Double(totalIPs))
                 }
@@ -505,6 +463,33 @@ extension NetworkScanner {
             return nil
         }
         return name
+    }
+
+    private func makeDiscoveredDevice(
+        ip: String,
+        openPorts: [Int],
+        previousDevices: Set<String>,
+        cachedDetails: [String: (hostName: String, macAddress: String, manufacturer: String, openPorts: [Int])]
+    ) -> DeviceInfo {
+        let cached = cachedDetails[ip]
+        let remembered = rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
+        return DeviceInfo(
+            id: UUID(),
+            ipAddress: ip,
+            hostName: remembered
+                ?? cached.flatMap { usefulHostName($0.hostName) }
+                ?? "…",
+            macAddress: cached?.macAddress ?? "",
+            manufacturer: cached?.manufacturer ?? "",
+            openPorts: openPorts,
+            status: DeviceStatusResolver.status(for: ip, previousIPs: previousDevices),
+            isExpanded: false
+        )
+    }
+
+    nonisolated private static func ipSort(_ a: String, _ b: String) -> Bool {
+        let octet: (String) -> Int = { Int($0.split(separator: ".").last ?? "0") ?? 0 }
+        return octet(a) < octet(b)
     }
 }
 

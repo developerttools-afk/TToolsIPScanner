@@ -105,24 +105,29 @@ enum NetworkConstants {
     static let fullScanPorts: [Int] = [20, 21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 3306, 3389, 5900]
     
     /// Ports probed during host discovery (any open → host considered reachable).
-    /// Erweiterte Liste für bessere Geräteerkennung (Router, NAS, IoT, Drucker, etc.)
+    /// Ordered by likelihood - most common ports first for faster discovery
     static let discoveryPorts: [Int] = [
-        80, 443,      // HTTP/HTTPS (Web)
-        22, 23,       // SSH/Telnet
-        445, 139,     // SMB/NetBIOS (Windows/NAS)
-        8080, 8443,   // Alternative HTTP/HTTPS
+        80,           // HTTP (most common)
+        443,          // HTTPS
+        22,           // SSH
+        445,          // SMB (Windows/NAS)
+        8080,         // Alt HTTP
+        139,          // NetBIOS
+        23,           // Telnet
+        3389,         // RDP
         21,           // FTP
-        3389,         // RDP (Remote Desktop)
+        8443,         // Alt HTTPS
         5900,         // VNC
-        631,          // IPP (Drucker)
-        53,           // DNS (Router)
-        1883, 8883    // MQTT (IoT)
+        631,          // Drucker
+        53,           // DNS
+        1883          // MQTT
     ]
     #if os(iOS)
     /// Slightly longer on cellular/Wi‑Fi radios where RTT is higher.
-    static let discoveryTimeout: TimeInterval = 0.5
+    static let discoveryTimeout: TimeInterval = 0.3
     #else
-    /// Erhöht von 0.25s auf 0.5s für zuverlässigere Erkennung
-    static let discoveryTimeout: TimeInterval = 0.5
+    /// Reduced to 0.2s for faster scanning on LAN (RTT typically <1ms)
+    /// Non-existent hosts will timeout quickly, alive hosts respond immediately
+    static let discoveryTimeout: TimeInterval = 0.2
     #endif
 } 

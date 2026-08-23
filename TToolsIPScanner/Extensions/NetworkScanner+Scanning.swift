@@ -199,8 +199,8 @@ extension NetworkScanner {
                         self.scanProgress = "Prüfe \(ip)... (\(foundCount) gefunden)"
                     }
                 } else {
-                    // Update progress every 10 IPs for non-found devices
-                    if completedCount % 10 == 0 {
+                    // Update progress every 5 IPs for non-found devices (more frequent)
+                    if completedCount % 5 == 0 {
                         await MainActor.run {
                             self.currentScanIP = ip
                             self.scanProgress = "Prüfe \(ip)... (\(foundCount) gefunden)"
@@ -209,7 +209,10 @@ extension NetworkScanner {
                 }
                 
                 completedCount += 1
-                await updateScanState(percentage: Double(completedCount) * 100.0 / Double(totalIPs))
+                // Update percentage more frequently
+                if completedCount % 5 == 0 || device != nil {
+                    await updateScanState(percentage: Double(completedCount) * 100.0 / Double(totalIPs))
+                }
             }
         }
         

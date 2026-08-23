@@ -168,7 +168,13 @@ extension NetworkScanner {
                     let ip = "\(baseIP).\(i)"
                     
                     // Phase 1: lightweight discovery only (fixed ports)
+                    #if os(iOS)
+                    // Use modern NWConnection API on iOS (works better with Local Network permission)
+                    let (isAlive, foundPorts) = await self.discoverHostModern(ip: ip)
+                    #else
+                    // Use BSD sockets on macOS (faster, no permission issues)
                     let (isAlive, foundPorts) = self.discoverHost(ip)
+                    #endif
                     
                     var newDevice: DeviceInfo?
                     if isAlive {

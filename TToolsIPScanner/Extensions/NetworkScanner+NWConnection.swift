@@ -18,23 +18,39 @@ extension NetworkScanner {
             let port = NWEndpoint.Port(integerLiteral: port)
             let connection = NWConnection(host: host, port: port, using: .tcp)
             
+            // Thread-safe state tracking with NSLock
+            let stateLock = NSLock()
             var hasReturned = false
+            
             let timeoutTask = Task {
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                if !hasReturned {
+                stateLock.lock()
+                let shouldReturn = !hasReturned
+                if shouldReturn {
                     hasReturned = true
+                }
+                stateLock.unlock()
+                
+                if shouldReturn {
                     connection.cancel()
                     continuation.resume(returning: (false, false, nil))
                 }
             }
             
             connection.stateUpdateHandler = { state in
-                guard !hasReturned else { return }
+                stateLock.lock()
+                let shouldHandle = !hasReturned
+                stateLock.unlock()
+                
+                guard shouldHandle else { return }
                 
                 switch state {
                 case .ready:
                     // Connection successful - host is alive AND port is open
+                    stateLock.lock()
                     hasReturned = true
+                    stateLock.unlock()
+                    
                     timeoutTask.cancel()
                     let rtt = Date().timeIntervalSince(startTime)
                     connection.cancel()
@@ -42,12 +58,22 @@ extension NetworkScanner {
                     
                 case .failed(let error):
                     // Connection failed - but we need to distinguish why
+                    stateLock.lock()
                     hasReturned = true
+                    stateLock.unlock()
+                    
                     timeoutTask.cancel()
                     connection.cancel()
                     
-                    // Connection refused = host is alive but port is closed
-                    let isRefused = (error as? POSIXError)?.code == .ECONNREFUSED
+                    // Check if connection was refused (host alive but port closed)
+                    // NWError.posix wraps POSIX errors
+                    let isRefused: Bool
+                    if case .posix(let posixCode) = error {
+                        isRefused = (posixCode == .ECONNREFUSED)
+                    } else {
+                        isRefused = false
+                    }
+                    
                     continuation.resume(returning: (isRefused, false, nil))
                     
                 case .cancelled:

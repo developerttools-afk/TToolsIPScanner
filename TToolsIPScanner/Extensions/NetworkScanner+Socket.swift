@@ -22,10 +22,7 @@ extension NetworkScanner {
         for port in criticalPorts {
             let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
             
-            // DEBUG LOGGING (temporary)
-            if ip.hasSuffix(".1") || ip.hasSuffix(".141") || ip.hasSuffix(".100") {
-                print("🔍 \(ip):\(port) → alive=\(hostAlive) open=\(portOpen)")
-            }
+            // Skip debug logging in production
             
             if hostAlive {
                 if portOpen {
@@ -43,9 +40,8 @@ extension NetworkScanner {
         }
         
         // FALLBACK: Try UDP echo probe for stubborn firewalled hosts
-        // Many routers/gateways filter all TCP but respond to UDP
+        // Note: This may not work with AP-Isolation enabled
         if tryUDPProbe(ip) {
-            print("💡 \(ip) found via UDP probe (TCP all filtered)")
             return (true, []) // Host alive but no TCP ports open
         }
         

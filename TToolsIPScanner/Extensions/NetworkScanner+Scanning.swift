@@ -140,59 +140,16 @@ extension NetworkScanner {
         
         let discoveryHits = ResolutionStore<String, [Int]>()
         
-        print("🚀 Starting scan on \(baseIP).0/24 (\(totalIPs) IPs)")
-        
         #if os(iOS)
-        // Start Bonjour discovery in parallel (iOS only)
-        print("📡 Starting Bonjour/mDNS discovery (3s timeout)...")
+        // Request permission before scan
+        LocalNetworkAccess.requestIfNeeded()
+        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+        
+        // Start Bonjour discovery in background (iOS only)
         let bonjourScanner = BonjourScanner()
         Task.detached {
-            let bonjourHosts = await bonjourScanner.scanNetwork(timeout: 3.0)
-            if !bonjourHosts.isEmpty {
-                print("📡 Bonjour found \(bonjourHosts.count) hosts: \(bonjourHosts)")
-            } else {
-                print("📡 Bonjour found no hosts (devices may not advertise services)")
-            }
+            _ = await bonjourScanner.scanNetwork(timeout: 2.0)
         }
-        #endif
-        
-        #if os(iOS)
-        // Request permission explicitly before scan
-        LocalNetworkAccess.requestIfNeeded()
-        // Give iOS time to process permission
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-        
-        // DIRECT TEST: Try connecting to well-known public DNS
-        print("🧪 DIRECT SOCKET TEST:")
-        let testSock = Darwin.socket(AF_INET, SOCK_STREAM, 0)
-        if testSock < 0 {
-            print("❌ socket() FAILED: \(String(cString: strerror(errno)))")
-        } else {
-            var addr = sockaddr_in()
-            addr.sin_family = sa_family_t(AF_INET)
-            addr.sin_port = UInt16(53).bigEndian
-            inet_pton(AF_INET, "8.8.8.8", &addr.sin_addr)
-            
-            let flags = fcntl(testSock, F_GETFL, 0)
-            _ = fcntl(testSock, F_SETFL, flags | O_NONBLOCK)
-            
-            let result = withUnsafePointer(to: addr) { ptr in
-                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
-                    Darwin.connect(testSock, sockAddr, socklen_t(MemoryLayout<sockaddr_in>.size))
-                }
-            }
-            
-            print("✅ socket() OK, connect() = \(result), errno = \(errno) (\(String(cString: strerror(errno))))")
-            Darwin.close(testSock)
-        }
-        
-        // Test gateway directly
-        print("🧪 TESTING GATEWAY \(baseIP).1 directly:")
-        let (gw_alive, gw_open) = self.probeHost(ip: "\(baseIP).1", port: 80, timeout: 1.0)
-        print("   → Port 80: alive=\(gw_alive), open=\(gw_open)")
-        
-        print("⚠️ iOS: Local Network Permission status: CHECK IN SETTINGS")
-        print("⚠️ Settings → TTools IP Scanner → Local Network → Should be ON")
         #endif
         
         await updateScanState(

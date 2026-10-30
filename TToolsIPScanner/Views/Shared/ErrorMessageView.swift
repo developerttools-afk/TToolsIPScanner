@@ -60,10 +60,18 @@ struct ErrorMessageView: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(backgroundColorForSeverity(error.severity))
-        )
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(backgroundColorForSeverity(error.severity))
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(colorForSeverity(error.severity).opacity(0.35), lineWidth: 1)
+        }
     }
     
     private func colorForSeverity(_ severity: ScanError.Severity) -> Color {

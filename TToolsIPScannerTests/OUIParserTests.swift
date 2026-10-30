@@ -526,6 +526,87 @@ final class OUIParserTests: XCTestCase {
         }
     }
     
+    func testParseLine_MaskedAssignmentsDoNotOverwriteBaseOUI() {
+        let base = OUIParser.parseLine("00:55:DA\tReal\tReal Vendor")
+        XCTAssertEqual(base?.oui, "0055DA")
+        XCTAssertEqual(base?.vendor, "Real Vendor")
+        
+        let maM = OUIParser.parseLine("00:55:DA:00/28\tOther\tOther Vendor")
+        XCTAssertEqual(maM?.oui, "0055DA0")
+        XCTAssertEqual(maM?.vendor, "Other Vendor")
+        
+        let maS = OUIParser.parseLine("00:1B:C5:00:00:00/36\tSmall\tSmall Vendor")
+        XCTAssertEqual(maS?.oui, "001BC5000")
+        XCTAssertEqual(maS?.vendor, "Small Vendor")
+    }
+    
+    func testParse_SeparatesMALMAMS() {
+        let content = """
+        00:1B:C5\tBase24\tBase 24
+        00:1B:C5:00/28\tBase28\tBase 28
+        00:1B:C5:00:00:00/36\tBase36\tBase 36
+        00:55:DA\tReal\tReal Vendor
+        00:55:DA:00/28\tOther\tOther Vendor
+        AA:BB:CC\tKeep\tKeep Vendor
+        AA:BB:CC:DD/32\tDrop\tDrop Vendor
+        """
+        let tables = OUIParser.tables(content: content)
+        XCTAssertEqual(tables.maL["001BC5"], "Base 24")
+        XCTAssertEqual(tables.maM["001BC50"], "Base 28")
+        XCTAssertEqual(tables.maS["001BC5000"], "Base 36")
+        XCTAssertEqual(tables.maL["0055DA"], "Real Vendor")
+        XCTAssertEqual(tables.maM["0055DA0"], "Other Vendor")
+        XCTAssertNil(tables.maL["0055DA0"])
+        XCTAssertEqual(tables.maL["AABBCC"], "Keep Vendor")
+        XCTAssertNil(tables.maL["AABBCCDD"])
+        XCTAssertNil(tables.maM["AABBCCDD"])
+        
+        let flat = OUIParser.parse(content: content)
+        XCTAssertEqual(OUIParser.lookup(mac: "00:1B:C5:00:00:01", database: flat), "Base 36")
+        XCTAssertEqual(OUIParser.lookup(mac: "00:1B:C5:00:10:00", database: flat), "Base 28")
+        XCTAssertEqual(OUIParser.lookup(mac: "00:1B:C5:10:00:00", database: flat), "Base 24")
+        XCTAssertEqual(OUIParser.lookup(mac: "00:55:DA:11:22:33", database: flat), "Real Vendor")
+        XCTAssertEqual(OUIParser.lookup(mac: "00:55:DA:0A:00:01", database: flat), "Other Vendor")
+        XCTAssertEqual(OUIParser.lookup(mac: "AA:BB:CC:DD:EE:FF", database: flat), "Keep Vendor")
+    }
+    
+    func testLookup_PrivateMACWhenBit1Set() {
+        let database = ["001A11": "Google, Inc."]
+        XCTAssertTrue(OUIParser.isLocallyAdministered("02:00:00:11:22:33"))
+        XCTAssertTrue(OUIParser.isLocallyAdministered("06:AA:BB:CC:DD:EE"))
+        XCTAssertFalse(OUIParser.isLocallyAdministered("00:1A:11:22:33:44"))
+        XCTAssertEqual(
+            OUIParser.lookup(mac: "02:11:22:33:44:55", database: database),
+            OUIParser.privateMACLabel
+        )
+        XCTAssertEqual(
+            OUIParser.lookup(mac: "00:11:22:33:44:55", database: database),
+            "Unbekannt"
+        )
+        XCTAssertEqual(
+            OUIParser.lookup(mac: "00:1A:11:AA:BB:CC", database: database),
+            "Google, Inc."
+        )
+        let localRegistered = ["021122": "Registered Local"]
+        XCTAssertEqual(
+            OUIParser.lookup(mac: "02:11:22:33:44:55", database: localRegistered),
+            "Registered Local"
+        )
+        XCTAssertFalse(OUIParser.shouldUpgradeManufacturer(current: "Unbekannt", proposed: "0,1,2"))
+        XCTAssertTrue(OUIParser.shouldUpgradeManufacturer(current: "Unbekannt", proposed: "Apple, Inc."))
+    }
+    
+    func testLookup_MostSpecificPrefixWinsOverShorterKey() {
+        let database = [
+            "001BC5": "Wide",
+            "001BC50": "Medium",
+            "001BC5000": "Narrow"
+        ]
+        XCTAssertEqual(OUIParser.lookup(mac: "00:1B:C5:00:00:0F", database: database), "Narrow")
+        XCTAssertEqual(OUIParser.lookup(mac: "00:1B:C5:00:FF:FF", database: database), "Medium")
+        XCTAssertEqual(OUIParser.lookup(mac: "00:1B:C5:FF:00:00", database: database), "Wide")
+    }
+    
     // MARK: - Performance Tests
     
     func testPerformance_ParseLargeDatabase() {

@@ -1,14 +1,11 @@
 import Foundation
 import Network
 
-#if os(iOS) || os(visionOS)
-/// Triggers the iOS Local Network privacy prompt (TN3179) so subsequent
-/// BSD TCP probes are not silently blocked.
+/// Triggers Local Network privacy prompt (TN3179) before LAN probes.
 enum LocalNetworkAccess {
     private static var browser: NWBrowser?
     private static var triggered = false
     
-    /// Fire-and-forget Bonjour browse + local UDP connect to surface the permission alert.
     static func requestIfNeeded() {
         guard !triggered else { return }
         triggered = true
@@ -21,8 +18,6 @@ enum LocalNetworkAccess {
         browser.stateUpdateHandler = { _ in }
         browser.start(queue: .global(qos: .utility))
         
-        // TN3179: connecting a UDP socket to a LAN address triggers the alert
-        // without generating traffic.
         triggerViaUDP()
         
         DispatchQueue.global().asyncAfter(deadline: .now() + 2.0) {
@@ -40,7 +35,7 @@ enum LocalNetworkAccess {
         
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = UInt16(9).bigEndian // discard
+        addr.sin_port = UInt16(9).bigEndian
         _ = inet_pton(AF_INET, "192.168.0.1", &addr.sin_addr)
         
         _ = withUnsafePointer(to: &addr) { ptr in
@@ -50,4 +45,3 @@ enum LocalNetworkAccess {
         }
     }
 }
-#endif

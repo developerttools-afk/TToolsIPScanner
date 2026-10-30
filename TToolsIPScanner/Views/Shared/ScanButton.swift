@@ -3,24 +3,41 @@ import SwiftUI
 struct ScanButton: View {
     @ObservedObject var scanner: NetworkScanner
     
+    private var isBusy: Bool {
+        scanner.isScanning || scanner.devicePortScanIP != nil
+    }
+    
     var body: some View {
-        Button(action: {
+        ScanButtonChrome(isBusy: isBusy) {
             if scanner.isScanning {
                 scanner.stopScan()
+            } else if scanner.devicePortScanIP != nil {
+                scanner.stopDevicePortScan()
             } else {
-                // Start scan asynchronously
                 scanner.startScan(
                     baseIP: scanner.currentNetwork,
                     mode: scanner.preferredScanMode
                 )
             }
-        }) {
-            HStack {
-                Image(systemName: scanner.isScanning ? "stop.fill" : "play.fill")
-                Text(scanner.isScanning ? "Stopp" : "Scan starten")
-            }
-            .foregroundColor(scanner.isScanning ? .red : .green)
         }
-        .buttonStyle(.bordered)
+        .equatable()
+    }
+}
+
+/// Glass is skipped while the scan publishes progress, so the effect is not sampled twice per frame.
+private struct ScanButtonChrome: View, Equatable {
+    let isBusy: Bool
+    let action: () -> Void
+    
+    static func == (lhs: ScanButtonChrome, rhs: ScanButtonChrome) -> Bool {
+        lhs.isBusy == rhs.isBusy
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            Label(isBusy ? "Stopp" : "Scan starten", systemImage: isBusy ? "stop.fill" : "play.fill")
+        }
+        .tint(isBusy ? .red : .green)
+        .scannerGlassButton(prominent: true)
     }
 }

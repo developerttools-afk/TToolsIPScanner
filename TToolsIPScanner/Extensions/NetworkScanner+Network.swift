@@ -3,18 +3,27 @@ import Network
 import SystemConfiguration
 
 extension NetworkScanner {
+    struct InterfaceAddress: Sendable {
+        let ip: String
+        let netmask: String?
+    }
+    
     nonisolated func getCurrentNetwork() -> String? {
+        getInterfaceAddress()?.ip
+    }
+    
+    nonisolated func getInterfaceAddress() -> InterfaceAddress? {
         final class AddressBox: @unchecked Sendable {
-            var value: String?
+            var value: InterfaceAddress?
             let lock = NSLock()
             
-            func set(_ newValue: String?) {
+            func set(_ newValue: InterfaceAddress?) {
                 lock.lock()
                 defer { lock.unlock() }
                 value = newValue
             }
             
-            func get() -> String? {
+            func get() -> InterfaceAddress? {
                 lock.lock()
                 defer { lock.unlock() }
                 return value
@@ -39,9 +48,9 @@ extension NetworkScanner {
                 ?? path.availableInterfaces.first(where: { $0.type == .wiredEthernet })
             
             if let preferred {
-                addressBox.set(self.getIPAddress(forInterfaceNamed: preferred.name))
+                addressBox.set(self.getInterfaceAddress(forInterfaceNamed: preferred.name))
             } else {
-                addressBox.set(self.getIPAddress(forInterfaceNamed: nil, excludingCellularLike: true))
+                addressBox.set(self.getInterfaceAddress(forInterfaceNamed: nil, excludingCellularLike: true))
             }
         }
         
@@ -51,14 +60,13 @@ extension NetworkScanner {
         return addressBox.get()
     }
     
-    /// Resolves IPv4 for a named interface (e.g. `en0`). If `name` is nil, returns
-    /// the first non-loopback IPv4 that does not look like WWAN.
-    nonisolated private func getIPAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
+    /// Resolves IPv4 + netmask for a named interface (e.g. `en0`).
+    nonisolated private func getInterfaceAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> InterfaceAddress? {
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
         defer { freeifaddrs(ifaddr) }
         
-        var fallback: String?
+        var fallback: InterfaceAddress?
         var ptr: UnsafeMutablePointer<ifaddrs>? = first
         while let current = ptr {
             defer { ptr = current.pointee.ifa_next }
@@ -84,17 +92,35 @@ extension NetworkScanner {
             let address = String(cString: hostname)
             guard !address.hasPrefix("127.") else { continue }
             
-            if let name, ifName == name {
-                return address
+            var netmaskString: String?
+            if let maskAddr = current.pointee.ifa_netmask,
+               maskAddr.pointee.sa_family == UInt8(AF_INET) {
+                var maskBuf = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                if getnameinfo(
+                    maskAddr,
+                    socklen_t(MemoryLayout<sockaddr_in>.size),
+                    &maskBuf,
+                    socklen_t(maskBuf.count),
+                    nil,
+                    0,
+                    NI_NUMERICHOST
+                ) == 0 {
+                    netmaskString = String(cString: maskBuf)
+                }
             }
             
-            // Skip typical cellular interface names when scanning for LAN.
+            let entry = InterfaceAddress(ip: address, netmask: netmaskString)
+            
+            if let name, ifName == name {
+                return entry
+            }
+            
             if excludingCellularLike || name == nil {
                 if ifName.hasPrefix("pdp_ip") || ifName.hasPrefix("utun") {
                     continue
                 }
                 if fallback == nil {
-                    fallback = address
+                    fallback = entry
                 }
             }
         }
@@ -102,83 +128,49 @@ extension NetworkScanner {
         return fallback
     }
     
+    /// Legacy helper kept for callers that only need the IP string.
+    nonisolated private func getInterfaceAddress(forInterfaceNamed name: String?, excludingCellularLike: Bool = false) -> String? {
+        getInterfaceAddress(forInterfaceNamed: name, excludingCellularLike: excludingCellularLike)?.ip
+    }
+    
+    func refreshSubnet(from ip: String? = nil) {
+        let localIP = ip ?? currentNetwork
+        let netmask = getInterfaceAddress()?.netmask
+        let subnet = SubnetConfig.from(localIP: localIP, netmask: netmask)
+        currentSubnet = subnet
+        subnetPrefixLength = subnet.prefixLength
+        subnetScanNote = subnet.scanNote
+        networkRange = subnet.displayRange
+        
+        // Keep the UI scoped to the active LAN (avoids leftover hosts from other networks).
+        let before = devices.count
+        devices = devices.filter { subnet.contains($0.ipAddress) }
+        if devices.count != before {
+            previousDevices = Set(devices.filter { $0.status != .missing }.map(\.ipAddress))
+            saveSettings()
+        }
+    }
+    
     internal func validateIPAddress(_ ipAddress: String) -> Bool {
         IPAddressValidator.isValidIPv4(ipAddress)
     }
     
     func updateNetworkRange() {
-        let components = currentNetwork.split(separator: ".")
-        if components.count == 4 {
-            let baseIP = components.dropLast().joined(separator: ".")
-            networkRange = "\(baseIP).1 - \(baseIP).255"
-        }
+        refreshSubnet(from: currentNetwork)
     }
     
-    /// Reverse-DNS lookup with caching and timeout using async/await
-    ///
-    /// Diese Methode prüft zuerst den DNS-Cache. Bei Cache-Miss wird ein
-    /// DNS-Lookup mit async/await durchgeführt und das Ergebnis im Cache gespeichert.
-    ///
-    /// - Parameters:
-    ///   - ip: IP-Adresse für DNS-Lookup
-    ///   - timeout: Timeout in Sekunden (Standard: 0.8s)
-    /// - Returns: Hostname oder `nil` bei Timeout/Fehler
+    /// Reverse-DNS lookup with caching and a hard timeout that does not wait
+    /// for blocked `getnameinfo` (see `TimedNameLookup`).
     internal func getHostName(for ip: String, timeout: TimeInterval = 0.8) async -> String? {
-        // Prüfe Cache zuerst
         if let cached = await dnsCache.get(ip) {
             return cached
         }
         
-        // Cache-Miss: Führe DNS-Lookup durch mit async/await
-        return await withTaskGroup(of: String?.self) { group in
-            group.addTask {
-                var hints = addrinfo()
-                hints.ai_family = AF_INET
-                hints.ai_socktype = SOCK_STREAM
-                hints.ai_flags = AI_NUMERICHOST
-                
-                var result: UnsafeMutablePointer<addrinfo>?
-                guard getaddrinfo(ip, nil, &hints, &result) == 0, let info = result else {
-                    return nil
-                }
-                defer { freeaddrinfo(info) }
-                guard let addr = info.pointee.ai_addr else { return nil }
-                
-                var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                let status = getnameinfo(
-                    addr,
-                    info.pointee.ai_addrlen,
-                    &hostname,
-                    socklen_t(hostname.count),
-                    nil,
-                    0,
-                    NI_NAMEREQD
-                )
-                guard status == 0 else { return nil }
-                
-                let name = String(cString: hostname)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                return name.isEmpty ? nil : name
-            }
-            
-            // Add timeout task
-            group.addTask {
-                try? await Task.sleep(for: .seconds(timeout))
-                return nil
-            }
-            
-            // Return first result (either resolved name or timeout)
-            for await result in group {
-                group.cancelAll()
-                // Speichere Ergebnis im Cache
-                if let hostname = result {
-                    await dnsCache.set(hostname, for: ip)
-                }
-                return result
-            }
-            
-            return nil
+        let name = await TimedNameLookup.reverseDNS(ip: ip, timeout: timeout, requireName: true)
+        if let name {
+            await dnsCache.set(name, for: ip)
         }
+        return name
     }
     
     /// Gibt DNS-Cache-Statistiken zurück

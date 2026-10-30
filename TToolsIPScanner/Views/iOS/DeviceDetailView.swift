@@ -40,10 +40,49 @@ struct DeviceDetailView: View {
                         }
                 } else {
                     LabeledContent("MAC-Adresse", value: "Nicht verfügbar")
+                    Text("iOS kann die ARP-Tabelle nicht lesen. Eine MAC erscheint nur, wenn NetBIOS, Bonjour oder UPnP sie liefern. Sonst gibt es keinen OUI-Hersteller.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 
                 if !live.manufacturer.isEmpty {
                     LabeledContent("Hersteller", value: live.manufacturer)
+                }
+                
+                if live.category != .unknown {
+                    LabeledContent("Kategorie", value: live.category.displayName)
+                }
+                
+                if let firstSeen = live.firstSeen {
+                    LabeledContent("Erstmals gesehen", value: firstSeen.formatted(date: .abbreviated, time: .shortened))
+                }
+                if let lastSeen = live.lastSeen {
+                    LabeledContent("Zuletzt gesehen", value: lastSeen.formatted(date: .abbreviated, time: .shortened))
+                }
+            }
+            
+            Section("Namen") {
+                LabeledContent("DNS-Name", value: nameOrNA(live.dnsName))
+                LabeledContent("mDNS-Name", value: nameOrNA(live.mdnsName.isEmpty ? live.bonjourName : live.mdnsName))
+                if !live.netbiosName.isEmpty {
+                    LabeledContent("NetBIOS-Name", value: live.netbiosName)
+                }
+            }
+            
+            Section("Details") {
+                if !live.detailHint.isEmpty {
+                    LabeledContent("Dienst/Protokoll", value: live.detailHint)
+                }
+                if !live.osHint.isEmpty {
+                    LabeledContent("OS/Hinweis", value: live.osHint)
+                }
+                if live.detailHint.isEmpty && live.osHint.isEmpty {
+                    Text("Keine weiteren Details")
+                        .foregroundStyle(.secondary)
+                }
+                
+                if !live.advertisedServices.isEmpty {
+                    LabeledContent("Bonjour-Dienste", value: live.advertisedServices.joined(separator: ", "))
                 }
                 
                 if let alias = scanner.getDeviceAlias(for: live) {
@@ -52,50 +91,56 @@ struct DeviceDetailView: View {
             }
             
             Section("Offene Ports") {
-                if live.openPorts.isEmpty {
+                if scanner.isPortScanning(ip: live.ipAddress) {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Ports werden geprüft…")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if live.openPorts.isEmpty {
                     Text(scanner.isScanning ? "Ports werden geprüft…" : "Keine offenen Ports gefunden")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(live.openPorts.sorted(), id: \.self) { port in
-                        HStack {
-                            Text(NetworkConstants.portLetter(for: port))
-                                .font(.body.monospaced().weight(.semibold))
-                                .foregroundStyle(scanner.getPortSymbol(port)?.color ?? .blue)
-                                .frame(minWidth: 16, alignment: .center)
-                            if let symbolInfo = scanner.getPortSymbol(port) {
-                                Image(systemName: symbolInfo.symbol)
-                                    .foregroundColor(symbolInfo.color)
+                        if let action = NetworkConstants.openAction(ip: live.ipAddress, port: port) {
+                            Button {
+                                scanner.openService(action)
+                            } label: {
+                                portRow(port)
                             }
-                            Text("\(port)")
-                                .font(.system(.body, design: .monospaced))
-                            Text(scanner.getPortDescription(port))
-                                .foregroundColor(.secondary)
+                            .contextMenu {
+                                Button("URL kopieren") {
+                                    UIPasteboard.general.string = action.urlString
+                                }
+                            }
+                        } else {
+                            portRow(port)
                         }
                     }
+                }
+                
+                if scanner.isPortScanning(ip: live.ipAddress) {
+                    Button(role: .destructive) {
+                        scanner.stopDevicePortScan()
+                    } label: {
+                        Label("Port-Scan abbrechen", systemImage: "stop.circle")
+                    }
+                } else {
+                    Button {
+                        scanner.startDevicePortScan(for: live)
+                    } label: {
+                        Label(
+                            scanner.preferredScanMode == .fullScan
+                                ? "Ports erneut scannen (Vollscan)"
+                                : "Ports erneut scannen",
+                            systemImage: "network"
+                        )
+                    }
+                    .disabled(scanner.isScanning || scanner.devicePortScanIP != nil)
                 }
             }
             
             Section {
-                if live.openPorts.contains(80) || live.openPorts.contains(443) {
-                    Button(action: {
-                        if let url = URL(string: "http://\(live.ipAddress)") {
-                            UIApplication.shared.open(url)
-                        }
-                    }) {
-                        Label("Im Browser öffnen", systemImage: "safari")
-                    }
-                }
-                
-                if live.openPorts.contains(22) {
-                    Button(action: {
-                        if let url = URL(string: "ssh://\(live.ipAddress)") {
-                            UIApplication.shared.open(url)
-                        }
-                    }) {
-                        Label("SSH Verbindung", systemImage: "terminal")
-                    }
-                }
-                
                 Button(action: { showEditAlias = true }) {
                     Label("Hostname-Alias bearbeiten", systemImage: "pencil")
                 }
@@ -114,6 +159,33 @@ struct DeviceDetailView: View {
                 DeviceAliasEditor(device: live, scanner: scanner)
             }
         }
+    }
+    
+    private func portRow(_ port: Int) -> some View {
+        HStack {
+            Text(NetworkConstants.portLetter(for: port))
+                .font(.body.monospaced().weight(.semibold))
+                .foregroundStyle(scanner.getPortSymbol(port)?.color ?? .blue)
+                .frame(minWidth: 16, alignment: .center)
+            if let symbolInfo = scanner.getPortSymbol(port) {
+                Image(systemName: symbolInfo.symbol)
+                    .foregroundColor(symbolInfo.color)
+            }
+            Text("\(port)")
+                .font(.system(.body, design: .monospaced))
+            Text(scanner.getPortDescription(port))
+                .foregroundColor(.secondary)
+            Spacer(minLength: 8)
+            if NetworkConstants.openAction(ip: live.ipAddress, port: port) != nil {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+    
+    private func nameOrNA(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Nicht verfügbar" : name
     }
 }
 #endif

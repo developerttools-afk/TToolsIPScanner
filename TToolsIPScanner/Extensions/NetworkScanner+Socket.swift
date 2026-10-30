@@ -1,77 +1,129 @@
 import Foundation
 
 extension NetworkScanner {
-    /// Returns (isHostAlive, openPorts) - Host is alive if ANY port responds (even if closed)
-    /// Fast discovery with 6 ports covering 98% of devices
-    nonisolated internal func discoverHost(_ ip: String) -> (isAlive: Bool, openPorts: [Int]) {
-        let timeout = NetworkConstants.discoveryTimeout
-        var openPorts: [Int] = []
+    nonisolated internal func discoveryPorts(for depth: DiscoveryDepth) -> [Int] {
+        switch depth {
+        case .fast: return NetworkConstants.fastDiscoveryPorts
+        case .normal, .thorough: return NetworkConstants.discoveryPorts
+        }
+    }
+    
+    /// Returns (isHostAlive, openPorts).
+    /// Uses a short parallel first wave so dead hosts fail fast (critical on iOS/Wi‑Fi).
+    nonisolated internal func discoverHost(_ ip: String, depth: DiscoveryDepth) -> (isAlive: Bool, openPorts: [Int]) {
+        let ports = discoveryPorts(for: depth)
+        let primaryTimeout = depth == .fast
+            ? NetworkConstants.discoveryTimeoutFast
+            : NetworkConstants.discoveryTimeoutNormal
+        let retryTimeout = NetworkConstants.discoveryTimeoutRetry
         
-        // SPEED OPTIMIZED: Only test 3 most common ports
-        // We rely on Bonjour for service discovery
-        // TCP scan only for basic reachability
-        // - 80 (HTTP): Most common, routers, web servers
-        // - 443 (HTTPS): Modern devices
-        // - 22 (SSH): Linux/Unix
-        //
-        // Trade-off: Speed vs Coverage
-        // Dead host cost: 3 × 0.2s = 0.6s (fast!)
-        // With Bonjour backup, acceptable coverage
-        let criticalPorts = [80, 443, 22]
+        if let result = probePorts(ports, ip: ip, timeout: primaryTimeout, depth: depth) {
+            return result
+        }
         
-        for port in criticalPorts {
-            let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
-            
-            // Skip debug logging in production
-            
-            if hostAlive {
-                if portOpen {
-                    openPorts.append(port)
-                }
-                // Host is alive - check remaining ports for more open ones
-                for remainingPort in criticalPorts where remainingPort > port {
-                    let (_, open) = probeHost(ip: ip, port: remainingPort, timeout: timeout)
-                    if open {
-                        openPorts.append(remainingPort)
-                    }
-                }
-                return (true, openPorts)
+        // One short retry on the first wave only — never re-walk all ports at 1s each.
+        if depth != .fast {
+            let wave = Array(ports.prefix(NetworkConstants.discoveryWaveSize))
+            if let result = probePorts(wave, ip: ip, timeout: retryTimeout, depth: .fast) {
+                return result
             }
         }
         
-        // FALLBACK: Try UDP echo probe for stubborn firewalled hosts
-        // Note: This may not work with AP-Isolation enabled
-        if tryUDPProbe(ip) {
-            return (true, []) // Host alive but no TCP ports open
+        if depth == .thorough, tryUDPProbe(ip) {
+            return (true, [])
         }
         
-        // No response on any port - host is down
         return (false, [])
     }
     
-    /// Legacy compatibility - now checks if host is alive (not just open ports)
-    nonisolated internal func isHostReachable(_ ip: String) -> Bool {
-        discoverHost(ip).isAlive
+    nonisolated internal func isHostReachable(_ ip: String, depth: DiscoveryDepth = .normal) -> Bool {
+        discoverHost(ip, depth: depth).isAlive
     }
     
-    /// Legacy compatibility - returns open ports
-    nonisolated internal func probeOpenDiscoveryPorts(_ ip: String) -> [Int] {
-        discoverHost(ip).openPorts
+    nonisolated internal func probeOpenDiscoveryPorts(_ ip: String, depth: DiscoveryDepth = .normal) -> [Int] {
+        discoverHost(ip, depth: depth).openPorts
     }
     
-    /// Tests every given port and returns those that are open (no early exit).
+    /// Parallel first wave; if any host answers (open or RST), probe the rest in parallel.
+    /// Dead hosts only pay for the wave — not all discovery ports.
+    nonisolated private func probePorts(
+        _ ports: [Int],
+        ip: String,
+        timeout: TimeInterval,
+        depth: DiscoveryDepth
+    ) -> (isAlive: Bool, openPorts: [Int])? {
+        guard !ports.isEmpty else { return nil }
+        
+        let waveSize = min(NetworkConstants.discoveryWaveSize, ports.count)
+        let wave = Array(ports.prefix(waveSize))
+        let (waveAlive, waveOpen) = probePortsParallel(wave, ip: ip, timeout: timeout)
+        
+        guard waveAlive else {
+            // Thorough: one extra parallel pass on remaining ports before giving up.
+            if depth == .thorough, ports.count > waveSize {
+                let rest = Array(ports.dropFirst(waveSize))
+                let (restAlive, restOpen) = probePortsParallel(rest, ip: ip, timeout: timeout)
+                if restAlive {
+                    return (true, restOpen.sorted())
+                }
+            }
+            return nil
+        }
+        
+        var openPorts = waveOpen
+        if ports.count > waveSize {
+            let rest = Array(ports.dropFirst(waveSize))
+            let (_, restOpen) = probePortsParallel(rest, ip: ip, timeout: timeout)
+            openPorts.append(contentsOf: restOpen)
+        }
+        return (true, Array(Set(openPorts)).sorted())
+    }
+    
+    nonisolated private func probePortsParallel(
+        _ ports: [Int],
+        ip: String,
+        timeout: TimeInterval
+    ) -> (alive: Bool, open: [Int]) {
+        guard !ports.isEmpty else { return (false, []) }
+        let lock = NSLock()
+        var open: [Int] = []
+        var alive = false
+        DispatchQueue.concurrentPerform(iterations: ports.count) { index in
+            let port = ports[index]
+            let (hostAlive, portOpen) = probeHost(ip: ip, port: port, timeout: timeout)
+            lock.lock()
+            if portOpen { open.append(port) }
+            if hostAlive { alive = true }
+            lock.unlock()
+        }
+        return (alive, open)
+    }
+    
+    /// Tests every given port and returns those that are open (parallel, capped batch size).
     nonisolated internal func probeOpenPorts(
         _ ip: String,
         ports: [Int],
-        timeout: TimeInterval = 0.5
+        timeout: TimeInterval = 0.25
     ) -> [Int] {
+        guard !ports.isEmpty else { return [] }
+        let lock = NSLock()
         var open: [Int] = []
-        for port in ports {
-            if isPortOpen(ip: ip, port: port, timeout: timeout) {
-                open.append(port)
+        let batch = NetworkConstants.portScanBatchSize
+        var start = 0
+        while start < ports.count {
+            let end = min(start + batch, ports.count)
+            let slice = Array(ports[start..<end])
+            DispatchQueue.concurrentPerform(iterations: slice.count) { index in
+                let port = slice[index]
+                if isPortOpen(ip: ip, port: port, timeout: timeout) {
+                    lock.lock()
+                    open.append(port)
+                    lock.unlock()
+                }
             }
+            start = end
         }
-        return open
+        return open.sorted()
     }
     
     /// Returns (isHostAlive, isPortOpen)
@@ -117,10 +169,9 @@ extension NetworkScanner {
         }
         
         if result == 0 {
-            return (true, true) // Connected immediately - host alive, port open
+            return (true, true)
         }
         
-        // ECONNREFUSED = host is alive but port is closed
         if errno == ECONNREFUSED {
             return (true, false)
         }
@@ -144,11 +195,11 @@ extension NetworkScanner {
         }
         
         if error == 0 {
-            return (true, true) // Connection succeeded - host alive, port open
+            return (true, true)
         } else if error == ECONNREFUSED {
-            return (true, false) // Connection refused - host alive, port closed
+            return (true, false)
         } else {
-            return (false, false) // Other error - likely no host
+            return (false, false)
         }
     }
     
@@ -157,21 +208,17 @@ extension NetworkScanner {
         return portOpen
     }
     
-    /// UDP probe for hosts that filter all TCP ports
-    /// Sends UDP to common ports and checks for ICMP Port Unreachable (means host is alive)
     nonisolated private func tryUDPProbe(_ ip: String) -> Bool {
         let sock = Darwin.socket(AF_INET, SOCK_DGRAM, 0)
         guard sock >= 0 else { return false }
         defer { Darwin.close(sock) }
         
-        // Set non-blocking and timeout
         let flags = fcntl(sock, F_GETFL, 0)
         _ = fcntl(sock, F_SETFL, flags | O_NONBLOCK)
         
-        var tv = timeval(tv_sec: 0, tv_usec: 100_000) // 0.1s
+        var tv = timeval(tv_sec: 0, tv_usec: 100_000)
         _ = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
         
-        // Try UDP to common ports: 53 (DNS), 123 (NTP), 67 (DHCP)
         let udpPorts: [UInt16] = [53, 123, 67]
         
         for port in udpPorts {
@@ -180,10 +227,9 @@ extension NetworkScanner {
             addr.sin_port = port.bigEndian
             guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else { continue }
             
-            // Send empty UDP packet
             var dummyByte: UInt8 = 0
             let sent = withUnsafePointer(to: &dummyByte) { dataPtr in
-                withUnsafePointer(to: addr) { addrPtr in
+                withUnsafePointer(to: &addr) { addrPtr in
                     addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockAddr in
                         Darwin.sendto(sock, dataPtr, 1, 0, sockAddr, socklen_t(MemoryLayout<sockaddr_in>.size))
                     }
@@ -191,8 +237,6 @@ extension NetworkScanner {
             }
             
             if sent >= 0 {
-                // If we get ICMP Port Unreachable, the host is alive
-                // recvfrom will fail with ECONNREFUSED if host responded with ICMP
                 var buf = [UInt8](repeating: 0, count: 1)
                 var addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
                 let received = withUnsafeMutablePointer(to: &addr) { ptr in
@@ -201,7 +245,6 @@ extension NetworkScanner {
                     }
                 }
                 
-                // ECONNREFUSED means we got ICMP Port Unreachable = host is alive!
                 if received < 0 && errno == ECONNREFUSED {
                     return true
                 }

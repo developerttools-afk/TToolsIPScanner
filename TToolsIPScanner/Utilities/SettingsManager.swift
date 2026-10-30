@@ -38,6 +38,13 @@ final class SettingsManager {
         static let sortOption = "sortOption"
         static let sortAscending = "sortAscending"
         static let preferredScanMode = "preferredScanMode"
+        static let preferredDiscoveryDepth = "preferredDiscoveryDepth"
+        static let fritzTR064Enabled = "fritzTR064Enabled"
+        static let fritzHost = "fritzHost"
+        static let fritzUsername = "fritzUsername"
+        static let snmpARPEnabled = "snmpARPEnabled"
+        static let snmpCommunity = "snmpCommunity"
+        static let shareMACOveriCloud = "shareMACOveriCloud"
     }
     
     // MARK: - Initialization
@@ -63,7 +70,7 @@ final class SettingsManager {
         }
     }
     
-    /// Bevorzugter Scan-Modus (Quick/Full).
+    /// Bevorzugter Scan-Modus (Quick/Full) für Phase-2 Port-Scan.
     var preferredScanMode: ScanMode {
         get {
             let rawValue = storage.string(forKey: Keys.preferredScanMode) ?? "quickScan"
@@ -73,6 +80,65 @@ final class SettingsManager {
             let value = newValue == .fullScan ? "fullScan" : "quickScan"
             storage.set(value, forKey: Keys.preferredScanMode)
         }
+    }
+    
+    /// Host-Discovery-Tiefe (Schnell/Normal/Gründlich) für Phase 1.
+    var preferredDiscoveryDepth: DiscoveryDepth {
+        get {
+            guard let raw = storage.string(forKey: Keys.preferredDiscoveryDepth),
+                  let depth = DiscoveryDepth(rawValue: raw) else {
+                return .normal
+            }
+            return depth
+        }
+        set {
+            storage.set(newValue.rawValue, forKey: Keys.preferredDiscoveryDepth)
+        }
+    }
+    
+    // MARK: - Router MAC sources
+    
+    /// TR-064 Hosts:GetGenericHostEntry. Off until the user opts in.
+    var fritzTR064Enabled: Bool {
+        get { storage.bool(forKey: Keys.fritzTR064Enabled) }
+        set { storage.set(newValue, forKey: Keys.fritzTR064Enabled) }
+    }
+    
+    /// Empty means the gateway, or `fritz.box` when no gateway is known.
+    var fritzHost: String {
+        get { storage.string(forKey: Keys.fritzHost) ?? "" }
+        set { storage.set(newValue, forKey: Keys.fritzHost) }
+    }
+    
+    var fritzUsername: String {
+        get { storage.string(forKey: Keys.fritzUsername) ?? "" }
+        set { storage.set(newValue, forKey: Keys.fritzUsername) }
+    }
+    
+    /// SNMP walk of the gateway ARP table. Fails fast when the router has no SNMP.
+    var snmpARPEnabled: Bool {
+        get {
+            if storage.object(forKey: Keys.snmpARPEnabled) == nil { return true }
+            return storage.bool(forKey: Keys.snmpARPEnabled)
+        }
+        set { storage.set(newValue, forKey: Keys.snmpARPEnabled) }
+    }
+    
+    var snmpCommunity: String {
+        get {
+            let value = storage.string(forKey: Keys.snmpCommunity) ?? "public"
+            return value.isEmpty ? "public" : value
+        }
+        set { storage.set(newValue, forKey: Keys.snmpCommunity) }
+    }
+    
+    /// macOS publishes MAC addresses; iOS reads them for the same subnet.
+    var shareMACOveriCloud: Bool {
+        get {
+            if storage.object(forKey: Keys.shareMACOveriCloud) == nil { return true }
+            return storage.bool(forKey: Keys.shareMACOveriCloud)
+        }
+        set { storage.set(newValue, forKey: Keys.shareMACOveriCloud) }
     }
     
     // MARK: - Sort Settings
@@ -120,7 +186,8 @@ final class SettingsManager {
             Keys.deviceAliases,
             Keys.sortOption,
             Keys.sortAscending,
-            Keys.preferredScanMode
+            Keys.preferredScanMode,
+            Keys.preferredDiscoveryDepth
         ]
         
         keys.forEach { storage.removeObject(forKey: $0) }
@@ -131,6 +198,7 @@ final class SettingsManager {
         return [
             "customPorts": Array(customPorts),
             "preferredScanMode": preferredScanMode == .fullScan ? "fullScan" : "quickScan",
+            "preferredDiscoveryDepth": preferredDiscoveryDepth.rawValue,
             "sortOption": sortOption.rawValue,
             "sortAscending": sortAscending,
             "recentNetworks": recentNetworks,

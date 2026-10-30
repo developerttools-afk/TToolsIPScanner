@@ -1,6 +1,11 @@
 import Foundation
 
 extension NetworkScanner {
+    nonisolated static let wiresharkManufURL = "https://www.wireshark.org/download/automated/data/manuf"
+    nonisolated static let ieeeOuiURL = "https://standards-oui.ieee.org/oui/oui.txt"
+    nonisolated static let ouiDownloadUserAgent = "TToolsIPScanner/1.36 (Macintosh; network scanner OUI update)"
+    nonisolated static let minimumOUIEntries = 10_000
+    
     private var ouiCacheFileURL: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
@@ -14,28 +19,18 @@ extension NetworkScanner {
     }
     
     func loadOUIDatabase() {
-        if let cached = loadOUICacheFromDisk() {
-            ouiDatabaseTimestamp = cached.timestamp
+        if let cached = loadOUICacheFromDisk(), !cached.database.isEmpty {
+            applyOUIDatabase(cached.database, timestamp: cached.timestamp, persist: false)
             let age = Date().timeIntervalSince(cached.timestamp)
-            isOUIDatabaseValid = age < ouiDatabaseValidityDuration
-            
-            if isOUIDatabaseValid {
-                ouiDatabase = cached.database
-                ouiDatabaseCount = cached.database.count
-                #if DEBUG
-                print("OUI cache: \(cached.database.count) entries")
-                #endif
-                return
-            } else {
-                #if DEBUG
-                print("OUI cache expired (\(Int(age/86400)) days old)")
-                #endif
+            let fresh = age < ouiDatabaseValidityDuration && cached.database.count > Self.minimumOUIEntries
+            isOUIDatabaseValid = fresh
+            if !fresh || cached.database.count < 5_000 {
+                updateOUIDatabase(useFullList: false)
             }
+            return
         }
         
-        // Migrate legacy UserDefaults cache once, then clear it.
-        migrateLegacyOUIUserDefaultsCache()
-        if !ouiDatabase.isEmpty, isOUIDatabaseValid {
+        if migrateLegacyOUIUserDefaultsCache() {
             return
         }
         
@@ -44,75 +39,100 @@ extension NetworkScanner {
     
     func updateOUIDatabase(useFullList: Bool = false) {
         isUpdatingOUI = true
+        ouiUpdateError = nil
         log("Starte OUI-Datenbank Update...")
         
-        let urlString = useFullList
-            ? "https://standards-oui.ieee.org/oui/oui.txt"
-            : "https://gitlab.com/wireshark/wireshark/-/raw/master/manuf"
-        
+        let urlString = useFullList ? Self.ieeeOuiURL : Self.wiresharkManufURL
         guard let url = URL(string: urlString) else {
-            log("Ungültige URL")
-            isUpdatingOUI = false
+            noteOUIFailure("Letztes Update fehlgeschlagen: ungültige URL", error: .ouiDatabaseCorrupted)
             return
         }
         
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self else { return }
+        var request = URLRequest(url: url)
+        request.setValue(Self.ouiDownloadUserAgent, forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 90
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self else { return }
             
-            if let error = error {
-                DispatchQueue.main.async {
-                    self.scanError = .ouiDatabaseLoadFailed(underlying: error)
-                    self.log("Fehler beim Download: \(error.localizedDescription)")
-                    self.isUpdatingOUI = false
+            if let error {
+                Task { @MainActor in
+                    self.noteOUIFailure(
+                        "Letztes Update fehlgeschlagen: \(error.localizedDescription)",
+                        error: .ouiDatabaseLoadFailed(underlying: error)
+                    )
                 }
                 return
             }
             
-            // Prüfe HTTP-Statuscode
             if let httpResponse = response as? HTTPURLResponse,
                !(200...299).contains(httpResponse.statusCode) {
-                DispatchQueue.main.async {
-                    self.scanError = .ouiDatabaseDownloadFailed(statusCode: httpResponse.statusCode)
-                    self.log("HTTP-Fehler: \(httpResponse.statusCode)")
-                    self.isUpdatingOUI = false
+                let statusCode = httpResponse.statusCode
+                Task { @MainActor in
+                    self.noteOUIFailure(
+                        "Letztes Update fehlgeschlagen: \(statusCode)",
+                        error: .ouiDatabaseDownloadFailed(statusCode: statusCode)
+                    )
                 }
                 return
             }
             
-            guard let data = data,
-                  let content = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async {
-                    self.scanError = .ouiDatabaseCorrupted
-                    self.log("Keine Daten empfangen")
-                    self.isUpdatingOUI = false
+            guard let data,
+                  let content = String(data: data, encoding: .utf8)
+                    ?? String(data: data, encoding: .isoLatin1) else {
+                Task { @MainActor in
+                    self.noteOUIFailure(
+                        "Letztes Update fehlgeschlagen: Kodierung",
+                        error: .ouiDatabaseCorrupted
+                    )
                 }
                 return
             }
             
-            var database = OUIParser.parse(content: content)
+            let parsed = OUIParser.parse(content: content)
+            guard parsed.count > Self.minimumOUIEntries else {
+                let count = parsed.count
+                Task { @MainActor in
+                    self.noteOUIFailure(
+                        "Letztes Update fehlgeschlagen: nur \(count) Einträge",
+                        error: .ouiDatabaseCorrupted
+                    )
+                }
+                return
+            }
+            
+            var database = parsed
             database.merge(NetworkConstants.additionalOUIs) { current, _ in current }
+            let timestamp = Date()
             
-            DispatchQueue.main.async {
-                self.ouiDatabase = database
-                self.ouiDatabaseCount = database.count
-                self.ouiDatabaseTimestamp = Date()
+            Task { @MainActor in
+                self.applyOUIDatabase(database, timestamp: timestamp, persist: true)
                 self.isOUIDatabaseValid = true
-                self.persistOUICache(database: database, timestamp: Date())
+                self.ouiUpdateError = nil
+                self.clearOUIRelatedScanError()
+                self.reassignManufacturers()
                 self.log("OUI-Datenbank aktualisiert (\(database.count) Einträge)")
                 self.isUpdatingOUI = false
             }
         }.resume()
     }
     
-    private func loadLocalOUIDatabase() {
+    private func loadLocalOUIDatabase(startUpdate: Bool = true) {
+        var database: [String: String] = [:]
         if let path = Bundle.main.path(forResource: "oui", ofType: "txt"),
            let content = try? String(contentsOfFile: path, encoding: .utf8) {
-            let database = OUIParser.parse(content: content)
-            ouiDatabase = database
-            ouiDatabaseCount = database.count
-            #if DEBUG
-            print("Local OUI database: \(database.count) entries")
-            #endif
+            database = OUIParser.parse(content: content)
+        }
+        database.merge(NetworkConstants.additionalOUIs) { current, _ in current }
+        ouiDatabase = database
+        ouiDatabaseCount = database.count
+        isOUIDatabaseValid = false
+        #if DEBUG
+        print("Local OUI database: \(database.count) entries")
+        #endif
+        
+        if startUpdate {
+            updateOUIDatabase(useFullList: false)
         }
     }
     
@@ -125,8 +145,67 @@ extension NetworkScanner {
         ouiDatabaseCount = 0
         ouiDatabaseTimestamp = nil
         isOUIDatabaseValid = false
-        loadLocalOUIDatabase()
-        log("OUI-Cache gelöscht")
+        ouiUpdateError = nil
+        loadLocalOUIDatabase(startUpdate: false)
+        updateOUIDatabase(useFullList: false)
+        log("OUI-Cache gelöscht, Update gestartet")
+    }
+    
+    private func applyOUIDatabase(_ database: [String: String], timestamp: Date, persist: Bool) {
+        var merged = database
+        merged.merge(NetworkConstants.additionalOUIs) { current, _ in current }
+        ouiDatabase = merged
+        ouiDatabaseCount = merged.count
+        ouiDatabaseTimestamp = timestamp
+        if persist {
+            persistOUICache(database: merged, timestamp: timestamp)
+        }
+    }
+    
+    /// Fill manufacturers that were still unknown when the OUI list finished loading.
+    private func reassignManufacturers() {
+        guard !devices.isEmpty else { return }
+        var copy = devices
+        var changed = false
+        for index in copy.indices {
+            let device = copy[index]
+            let proposed = resolveManufacturer(
+                mac: device.macAddress,
+                names: [
+                    device.hostName,
+                    device.bonjourName,
+                    device.mdnsName,
+                    device.dnsName,
+                    device.netbiosName,
+                    device.detailHint
+                ],
+                bonjour: nil,
+                ouiDB: ouiDatabase
+            )
+            if shouldUpgradeManufacturer(current: device.manufacturer, proposed: proposed) {
+                copy[index].manufacturer = proposed
+                changed = true
+            }
+        }
+        if changed {
+            devices = copy
+        }
+    }
+    
+    private func noteOUIFailure(_ message: String, error: ScanError) {
+        ouiUpdateError = message
+        scanError = error
+        log(message)
+        isUpdatingOUI = false
+    }
+    
+    private func clearOUIRelatedScanError() {
+        switch scanError {
+        case .ouiDatabaseLoadFailed, .ouiDatabaseDownloadFailed, .ouiDatabaseCorrupted:
+            scanError = nil
+        default:
+            break
+        }
     }
     
     private func persistOUICache(database: [String: String], timestamp: Date) {
@@ -154,24 +233,27 @@ extension NetworkScanner {
         return (database, timestamp)
     }
     
-    private func migrateLegacyOUIUserDefaultsCache() {
+    /// Returns true when a legacy cache was applied (fresh or stale). A stale cache is kept and refreshed.
+    @discardableResult
+    private func migrateLegacyOUIUserDefaultsCache() -> Bool {
         let legacyKey = "ouiDatabase"
         guard let savedData = UserDefaults.standard.data(forKey: legacyKey),
-              let timestamp = UserDefaults.standard.object(forKey: ouiDatabaseTimestampKey) as? Date,
-              let savedDatabase = try? JSONDecoder().decode([String: String].self, from: savedData) else {
-            return
+              let savedDatabase = try? JSONDecoder().decode([String: String].self, from: savedData),
+              !savedDatabase.isEmpty else {
+            return false
         }
         
+        let timestamp = UserDefaults.standard.object(forKey: ouiDatabaseTimestampKey) as? Date ?? Date.distantPast
+        applyOUIDatabase(savedDatabase, timestamp: timestamp, persist: true)
         let age = Date().timeIntervalSince(timestamp)
-        if age < ouiDatabaseValidityDuration {
-            ouiDatabase = savedDatabase
-            ouiDatabaseCount = savedDatabase.count
-            ouiDatabaseTimestamp = timestamp
-            isOUIDatabaseValid = true
-            persistOUICache(database: savedDatabase, timestamp: timestamp)
-        }
+        isOUIDatabaseValid = age < ouiDatabaseValidityDuration && savedDatabase.count > Self.minimumOUIEntries
         
         UserDefaults.standard.removeObject(forKey: legacyKey)
         UserDefaults.standard.removeObject(forKey: ouiDatabaseTimestampKey)
+        
+        if !isOUIDatabaseValid || savedDatabase.count < 5_000 {
+            updateOUIDatabase(useFullList: false)
+        }
+        return true
     }
 }

@@ -124,7 +124,7 @@ final class SettingsManagerTests: XCTestCase {
     
     func testSortOption_AllValues() {
         // Test alle Sort-Optionen
-        let allOptions: [SortOption] = [.ip, .hostname, .status, .vendor]
+        let allOptions: [SortOption] = [.ip, .hostname, .manufacturer]
         
         for option in allOptions {
             // When: Option wird gesetzt
@@ -336,17 +336,19 @@ final class SettingsManagerTests: XCTestCase {
                 ipAddress: "192.168.1.1",
                 hostName: "Router",
                 macAddress: "AA:BB:CC:DD:EE:01",
-                vendor: "Test Vendor",
+                manufacturer: "Test Vendor",
                 openPorts: [80, 443],
-                status: .active
+                status: .current,
+                isExpanded: false
             ),
             DeviceInfo(
                 ipAddress: "192.168.1.2",
                 hostName: "PC",
                 macAddress: "AA:BB:CC:DD:EE:02",
-                vendor: "Another Vendor",
+                manufacturer: "Another Vendor",
                 openPorts: [22],
-                status: .active
+                status: .current,
+                isExpanded: false
             )
         ]
     }

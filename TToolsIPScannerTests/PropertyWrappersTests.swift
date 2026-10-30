@@ -141,9 +141,10 @@ final class PropertyWrappersTests: XCTestCase {
             ipAddress: "192.168.1.1",
             hostName: "Test",
             macAddress: "AA:BB:CC:DD:EE:FF",
-            vendor: "TestVendor",
+            manufacturer: "TestVendor",
             openPorts: [80],
-            status: .active
+            status: .current,
+            isExpanded: false
         )
         devices = [testDevice]
         
@@ -200,7 +201,7 @@ final class PropertyWrappersTests: XCTestCase {
     
     func testEnumUserDefault_AllValues() {
         // Test alle SortOption-Werte
-        let allOptions: [SortOption] = [.ip, .hostname, .status, .vendor]
+        let allOptions: [SortOption] = [.ip, .hostname, .manufacturer]
         
         for option in allOptions {
             // When: Option wird gesetzt
@@ -256,9 +257,10 @@ final class PropertyWrappersTests: XCTestCase {
                 ipAddress: "192.168.1.1",
                 hostName: "Test",
                 macAddress: "",
-                vendor: "",
+                manufacturer: "",
                 openPorts: [],
-                status: .active
+                status: .current,
+                isExpanded: false
             )]
         }
         

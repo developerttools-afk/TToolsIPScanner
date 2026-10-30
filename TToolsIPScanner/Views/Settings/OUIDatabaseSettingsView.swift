@@ -18,13 +18,22 @@ struct OUIDatabaseSettingsView: View {
                 LabeledContent("Einträge", value: "\(scanner.ouiDatabaseCount)")
                 LabeledContent("Cache-Alter", value: cacheAge)
                 LabeledContent("Status") {
-                    if scanner.isOUIDatabaseValid {
+                    if scanner.isUpdatingOUI {
+                        Text("Aktualisiere…")
+                            .foregroundColor(.secondary)
+                    } else if scanner.isOUIDatabaseValid {
                         Text("Aktuell")
                             .foregroundColor(.green)
                     } else {
                         Text("Veraltet")
                             .foregroundColor(.red)
                     }
+                }
+                if let message = scanner.ouiUpdateError {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             

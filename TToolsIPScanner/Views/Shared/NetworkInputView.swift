@@ -2,14 +2,17 @@ import SwiftUI
 
 struct NetworkInputView: View {
     @ObservedObject var scanner: NetworkScanner
+    var showsCaption: Bool = true
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Aktuelles Netzwerk:")
+                if showsCaption {
+                    Text("Aktuelles Netzwerk:")
+                }
                 TextField("IP-Adresse", text: $scanner.currentNetwork)
                     .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 200)
+                    .frame(maxWidth: showsCaption ? 200 : .infinity)
                     .onChange(of: scanner.currentNetwork) { _, _ in
                         scanner.updateNetworkRange()
                         scanner.scanError = nil
@@ -27,6 +30,12 @@ struct NetworkInputView: View {
                     .foregroundColor(.secondary)
             }
             
+            if !scanner.subnetScanNote.isEmpty {
+                Text(scanner.subnetScanNote)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+            
             if let error = scanner.scanError {
                 ErrorMessageView(error: error)
             }
@@ -37,24 +46,24 @@ struct NetworkInputView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    ForEach(scanner.recentNetworks, id: \.self) { network in
-                        Button(action: {
-                            scanner.currentNetwork = network
-                            scanner.updateNetworkRange()
-                            scanner.startScan(baseIP: network, mode: scanner.preferredScanMode)
-                        }) {
-                            Text(network)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(4)
+                    HStack(spacing: 6) {
+                        ForEach(scanner.recentNetworks, id: \.self) { network in
+                            Button(action: {
+                                scanner.currentNetwork = network
+                                scanner.updateNetworkRange()
+                                scanner.startScan(baseIP: network, mode: scanner.preferredScanMode)
+                            }) {
+                                Text(network)
+                                    .font(.caption.weight(.medium))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(.thinMaterial, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
         }
-        .padding(.horizontal)
     }
 }

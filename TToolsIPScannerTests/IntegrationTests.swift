@@ -2,6 +2,7 @@ import XCTest
 @testable import TToolsIPScanner
 
 /// Umfassende Integration Tests für Zusammenspiel der Komponenten.
+@MainActor
 final class IntegrationTests: XCTestCase {
     
     var scanner: NetworkScanner!

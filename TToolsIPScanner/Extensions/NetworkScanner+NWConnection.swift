@@ -70,40 +70,72 @@ extension NetworkScanner {
         }
     }
 
-    /// Sequential TCP discovery — one connection at a time, stop at first alive response.
-    nonisolated func discoverHostModern(ip: String) async -> (Bool, [Int]) {
+    /// Sequential TCP discovery — stop at first alive response.
+    nonisolated func discoverHostModern(ip: String, depth: DiscoveryDepth) async -> (Bool, [Int]) {
+        let ports = discoveryPorts(for: depth)
+        let primaryTimeout = depth == .fast
+            ? NetworkConstants.discoveryTimeoutFast
+            : NetworkConstants.discoveryTimeoutNormal
+        let retryTimeout = NetworkConstants.discoveryTimeoutRetry
+        
+        if let result = await probePortsModern(ports, ip: ip, timeout: primaryTimeout) {
+            return result
+        }
+        
+        if depth != .fast, let result = await probePortsModern(ports, ip: ip, timeout: retryTimeout) {
+            return result
+        }
+        
+        return (false, [])
+    }
+    
+    private nonisolated func probePortsModern(
+        _ ports: [Int],
+        ip: String,
+        timeout: TimeInterval
+    ) async -> (Bool, [Int])? {
         var openPorts: [Int] = []
-        var alive = false
-
-        for port: UInt16 in [80, 443, 22] {
-            let result = await probeHostModern(ip: ip, port: port, timeout: 0.4)
-            if result.open {
-                openPorts.append(Int(port))
-            }
+        
+        for (index, port) in ports.enumerated() {
+            let result = await probeHostModern(ip: ip, port: UInt16(clamping: port), timeout: timeout)
+            if result.open { openPorts.append(port) }
+            
             if result.alive {
-                alive = true
-                break
+                for remaining in ports[(index + 1)...] {
+                    let r = await probeHostModern(ip: ip, port: UInt16(clamping: remaining), timeout: timeout)
+                    if r.open { openPorts.append(remaining) }
+                }
+                return (true, openPorts)
             }
         }
-
-        return (alive, openPorts)
+        return nil
     }
 
-    /// Phase-2 port scan for already discovered hosts. Sequential per IP to keep
-    /// NWConnection count low; only `.ready` counts as an open port.
+    /// Phase-2 port scan for already discovered hosts. Parallel TCP probes;
+    /// only `.ready` counts as an open port.
     nonisolated func probeOpenPortsModern(
         _ ip: String,
         ports: [Int],
-        timeout: TimeInterval = 0.6
+        timeout: TimeInterval = 0.3
     ) async -> [Int] {
-        var open: [Int] = []
-        for port in ports {
-            let result = await probeHostModern(ip: ip, port: UInt16(clamping: port), timeout: timeout)
-            if result.open {
-                open.append(port)
+        guard !ports.isEmpty else { return [] }
+        return await withTaskGroup(of: Int?.self, returning: [Int].self) { group in
+            for port in ports {
+                group.addTask {
+                    let result = await self.probeHostModern(
+                        ip: ip,
+                        port: UInt16(clamping: port),
+                        timeout: timeout
+                    )
+                    return result.open ? port : nil
+                }
             }
+            var open: [Int] = []
+            for await port in group {
+                if let port { open.append(port) }
+            }
+            return open.sorted()
         }
-        return open
     }
 
     nonisolated private static func hostIsAlive(despite error: NWError) -> Bool {

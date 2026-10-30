@@ -13,10 +13,12 @@ struct ContentView: View {
     var body: some View {
         #if os(iOS)
         MobileLayout(scanner: scanner)
+            .onAppear { scanner.startBackgroundPrefetchIfNeeded() }
         #else
         NavigationStack {
             DesktopLayout(scanner: scanner)
         }
+        .onAppear { scanner.startBackgroundPrefetchIfNeeded() }
         #endif
     }
 }

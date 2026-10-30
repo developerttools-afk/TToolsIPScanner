@@ -1,6 +1,7 @@
 import Testing
 @testable import TToolsIPScanner
 
+@MainActor
 struct TToolsIPScannerTests {
 
     // MARK: - IP validation

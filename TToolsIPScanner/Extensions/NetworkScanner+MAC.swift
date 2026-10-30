@@ -1,147 +1,90 @@
 import Foundation
 
-#if os(macOS)
-import Darwin
-#endif
-
 extension NetworkScanner {
     nonisolated internal func getMacAddress(
         for ip: String,
         openPorts: [Int] = [],
         knownHostName: String? = nil,
+        knownMac: String = "",
+        arpMap: [String: String] = [:],
         ouiDB: [String: String]
-    ) -> (mac: String, manufacturer: String) {
-        #if os(macOS)
-        // Prefer sysctl only — spawning /usr/sbin/arp under App Sandbox triggers
-        // Console noise: "Unable to obtain a task name port right".
-        if let mac = lookupMacFromARPTable(ip: ip) {
-            let vendor = lookupManufacturer(mac: mac, ouiDB: ouiDB)
-            return (mac, vendor == "Unbekannt" ? (manufacturerFromOpenPorts(openPorts) ?? vendor) : vendor)
-        }
-        #endif
+    ) -> (mac: String, manufacturer: String, osHint: String?) {
+        let mac = arpMap[ip]
+            ?? ARPTable.macAddress(for: ip)
+            ?? (knownMac.isEmpty ? nil : knownMac)
+            ?? ""
+        let portOsHint = osHintFromOpenPorts(openPorts)
         
-        var manufacturer = manufacturerFromOpenPorts(openPorts) ?? "Unbekannt"
-        
-        if manufacturer == "Unbekannt" {
-            let hostName = knownHostName?.lowercased()
-            if let hostName {
-                if hostName.contains("iphone") || hostName.contains("ipad") || hostName.contains("mac") {
-                    manufacturer = "Apple, Inc."
-                } else if hostName.contains("android") || hostName.contains("samsung") {
-                    manufacturer = "Samsung Electronics"
-                }
-            }
-        }
-        
-        // Never invent MAC addresses — alias lookup falls back to IP via DeviceInfo.aliasKey.
-        return ("", manufacturer)
+        let manufacturer = resolveManufacturer(
+            mac: mac,
+            names: [knownHostName],
+            bonjour: nil,
+            ouiDB: ouiDB
+        )
+        return (mac, manufacturer, portOsHint)
     }
     
-    #if os(macOS)
-    /// Read kernel ARP/routing table via sysctl (works under App Sandbox without subprocess).
-    nonisolated private func lookupMacFromARPTable(ip: String) -> String? {
-        var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO]
-        var length = 0
-        guard sysctl(&mib, 6, nil, &length, nil, 0) == 0, length > 0 else { return nil }
-        
-        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: length)
-        defer { buffer.deallocate() }
-        guard sysctl(&mib, 6, buffer, &length, nil, 0) == 0 else { return nil }
-        
-        var cursor = buffer
-        let end = buffer.advanced(by: length)
-        
-        while cursor < end {
-            let rtm = cursor.withMemoryRebound(to: rt_msghdr.self, capacity: 1) { $0.pointee }
-            let msgLen = Int(rtm.rtm_msglen)
-            guard msgLen > 0 else { break }
-            
-            if let mac = macAddress(inRouteMessage: cursor, length: msgLen, matchingIP: ip) {
-                return mac
-            }
-            cursor = cursor.advanced(by: msgLen)
+    /// Store a MAC learned without ARP and replace the vendor when the OUI database hits.
+    func applyLearnedMAC(_ raw: String?, to device: inout DeviceInfo) {
+        guard device.macAddress.isEmpty, let raw, let mac = MACAddress.normalize(raw) else { return }
+        device.macAddress = mac
+        let vendor = lookupManufacturer(mac: mac, ouiDB: ouiDatabase)
+        if vendor != OUIParser.unknownManufacturer && vendor != OUIParser.privateMACLabel {
+            device.manufacturer = vendor
+        } else if shouldUpgradeManufacturer(current: device.manufacturer, proposed: vendor) {
+            device.manufacturer = vendor
         }
+    }
+    
+    nonisolated internal func lookupManufacturer(mac: String, ouiDB: [String: String]) -> String {
+        OUIParser.lookup(mac: mac, database: ouiDB)
+    }
+    
+    /// OUI (36, then 28, then 24 bit) wins. Without a MAC, Bonjour TXT and host names fill the vendor.
+    nonisolated internal func resolveManufacturer(
+        mac: String,
+        names: [String?],
+        bonjour: BonjourHostInfo?,
+        ouiDB: [String: String]
+    ) -> String {
+        let ouiHit = mac.isEmpty ? OUIParser.unknownManufacturer : lookupManufacturer(mac: mac, ouiDB: ouiDB)
+        if ouiHit != OUIParser.unknownManufacturer && ouiHit != OUIParser.privateMACLabel {
+            return ouiHit
+        }
+        if let bonjour, let txtVendor = HostNameVendor.manufacturer(fromBonjour: bonjour) {
+            return txtVendor
+        }
+        for name in names {
+            if let hostVendor = HostNameVendor.manufacturer(from: name) {
+                return hostVendor
+            }
+        }
+        if ouiHit == OUIParser.privateMACLabel {
+            return ouiHit
+        }
+        return OUIParser.unknownManufacturer
+    }
+    
+    nonisolated internal func shouldUpgradeManufacturer(current: String, proposed: String) -> Bool {
+        OUIParser.shouldUpgradeManufacturer(current: current, proposed: proposed)
+    }
+    
+    /// Port-based hints belong in osHint, not manufacturer.
+    nonisolated internal func osHintFromOpenPorts(_ openPorts: [Int]) -> String? {
+        if openPorts.contains(22) { return "Unix/Linux?" }
+        if openPorts.contains(3389) || openPorts.contains(445) { return "Windows?" }
+        if openPorts.contains(548) || openPorts.contains(62078) { return "macOS?" }
         return nil
     }
     
-    nonisolated private func macAddress(inRouteMessage base: UnsafeMutablePointer<UInt8>, length: Int, matchingIP: String) -> String? {
-        let rtm = base.withMemoryRebound(to: rt_msghdr.self, capacity: 1) { $0.pointee }
-        var addrPtr = base.advanced(by: MemoryLayout<rt_msghdr>.stride)
-        let end = base.advanced(by: length)
-        
-        var foundIP = false
-        var mac: String?
-        var bit: Int32 = 1
-        
-        while bit != 0, addrPtr < end {
-            defer { bit <<= 1 }
-            guard (Int32(rtm.rtm_addrs) & bit) != 0 else { continue }
-            
-            let saLen = Int(addrPtr.pointee)
-            let family = Int32(addrPtr.advanced(by: 1).pointee)
-            let strideLen = max(saLen == 0 ? 4 : saLen, 4)
-            guard addrPtr.advanced(by: strideLen) <= end else { return nil }
-            
-            if bit == RTA_DST, family == AF_INET {
-                let sin = addrPtr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
-                var addr = sin.sin_addr
-                var ipBuf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-                inet_ntop(AF_INET, &addr, &ipBuf, socklen_t(INET_ADDRSTRLEN))
-                foundIP = String(cString: ipBuf) == matchingIP
-            }
-            
-            if bit == RTA_GATEWAY, family == AF_LINK {
-                let sdl = addrPtr.withMemoryRebound(to: sockaddr_dl.self, capacity: 1) { $0.pointee }
-                let alen = Int(sdl.sdl_alen)
-                if alen == 6 {
-                    // sdl_data starts with interface name (nlen), then MAC (alen)
-                    let dataStart = addrPtr
-                        .advanced(by: MemoryLayout<sockaddr_dl>.offset(of: \.sdl_data) ?? 8)
-                    let macStart = dataStart.advanced(by: Int(sdl.sdl_nlen))
-                    if macStart.advanced(by: 6) <= end {
-                        mac = (0..<6).map { String(format: "%02X", macStart.advanced(by: $0).pointee) }
-                            .joined(separator: ":")
-                    }
-                }
-            }
-            
-            addrPtr = addrPtr.advanced(by: strideLen)
-        }
-        
-        return foundIP ? mac : nil
-    }
-    #endif
-    
-    nonisolated private func manufacturerFromOpenPorts(_ openPorts: [Int]) -> String? {
-        if openPorts.contains(548) || openPorts.contains(5009) || openPorts.contains(5353) || openPorts.contains(62078) {
-            return "Apple, Inc."
-        }
-        if openPorts.contains(137) || openPorts.contains(139) || openPorts.contains(445) {
-            return "Microsoft Corporation"
-        }
-        if openPorts.contains(22) {
-            return "Unix/Linux Device"
-        }
-        if openPorts.contains(1883) || openPorts.contains(8883) {
-            return "IoT Device"
-        }
-        return nil
+    nonisolated internal func manufacturerFromHostName(_ name: String?) -> String? {
+        HostNameVendor.manufacturer(from: name)
     }
     
-    nonisolated private func lookupManufacturer(mac: String, ouiDB: [String: String]) -> String {
-        let cleanMac = mac.replacingOccurrences(of: ":", with: "").uppercased()
-        let oui = String(cleanMac.prefix(6))
-        
-        if let manufacturer = ouiDB[oui] {
-            return manufacturer
-        }
-        if let manufacturer = NetworkConstants.additionalOUIs[oui] {
-            return manufacturer
-        }
-        return "Unbekannt"
-    }
-
-    nonisolated internal func getManufacturerFromPortScan(openPorts: [Int]) -> String? {
-        manufacturerFromOpenPorts(openPorts)
+    nonisolated internal func isPortGuessManufacturer(_ value: String) -> Bool {
+        value == "Unix/Linux Device"
+            || value == "Microsoft Corporation"
+            || value == "IoT Device"
+            || value == "Unbekannt"
     }
 }

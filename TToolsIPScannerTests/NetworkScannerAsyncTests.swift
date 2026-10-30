@@ -95,7 +95,7 @@ final class NetworkScannerAsyncTests: XCTestCase {
         
         // Then
         XCTAssertNotNil(scanner.scanError)
-        XCTAssertTrue(scanner.scanError?.contains("Ungültige") ?? false)
+        XCTAssertTrue(scanner.scanError?.errorDescription?.contains("Ungültige") ?? false)
         XCTAssertFalse(scanner.isScanning)
     }
     

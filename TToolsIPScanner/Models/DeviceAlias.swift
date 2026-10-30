@@ -1,6 +1,6 @@
 import Foundation
 
-struct DeviceAlias: Codable {
+struct DeviceAlias: Codable, Equatable {
     var customName: String
     var notes: String
 } 

@@ -35,10 +35,42 @@ extension NetworkScanner {
     }
     
     func openInBrowser(ip: String) {
-        openURL("http://\(ip)")
+        if let action = NetworkConstants.openAction(ip: ip, port: 80) {
+            openService(action)
+        } else {
+            openURL("http://\(ip)")
+        }
     }
     
     func openInSSH(ip: String) {
-        openURL("ssh://\(ip)")
+        if let action = NetworkConstants.openAction(ip: ip, port: 22) {
+            openService(action)
+        } else {
+            openURL("ssh://\(ip)")
+        }
     }
+    
+    func openService(_ action: NetworkConstants.ServiceOpenAction) {
+        openURL(action.urlString)
+    }
+    
+    #if os(macOS)
+    func pingInTerminal(ip: String) {
+        guard IPAddressValidator.isValidIPv4(ip) else {
+            log("Ping abgebrochen: keine gültige IPv4-Adresse")
+            return
+        }
+        let script = """
+        tell application "Terminal"
+            activate
+            do script "ping \(ip)"
+        end tell
+        """
+        var error: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&error)
+        if let error {
+            log("Ping im Terminal fehlgeschlagen: \(error)")
+        }
+    }
+    #endif
 } 

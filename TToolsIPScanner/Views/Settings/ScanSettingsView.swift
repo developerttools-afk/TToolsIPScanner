@@ -31,6 +31,13 @@ struct ScanSettingsView: View {
             } footer: {
                 Text("Ergänzt weitere Standard-Ports. Sonst gelten die Ports aus den Port-Einstellungen, oder 21, 22, 80 und 443.")
             }
+            
+            Section {
+                Toggle("IPv6 scannen", isOn: $scanner.scanIPv6)
+                    .disabled(scanner.isScanning)
+            } footer: {
+                Text("Sucht IPv6-Nachbarn per Multicast-Ping und Nachbartabelle. Ein /64 wird nicht Adresse für Adresse geprüft. Aus, solange du es nicht einschaltest.")
+            }
         }
         .navigationTitle("Scan")
         #if os(iOS)

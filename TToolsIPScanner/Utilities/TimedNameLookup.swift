@@ -43,13 +43,14 @@ enum TimedNameLookup {
     }
     
     private static func blockingReverse(ip: String, requireName: Bool) -> String? {
+        let host = IPv6Address.unscoped(ip)
         var hints = addrinfo()
-        hints.ai_family = AF_INET
+        hints.ai_family = host.contains(":") ? AF_INET6 : AF_INET
         hints.ai_socktype = SOCK_STREAM
         hints.ai_flags = AI_NUMERICHOST
         
         var result: UnsafeMutablePointer<addrinfo>?
-        guard getaddrinfo(ip, nil, &hints, &result) == 0, let info = result else { return nil }
+        guard getaddrinfo(host, nil, &hints, &result) == 0, let info = result else { return nil }
         defer { freeaddrinfo(info) }
         guard let addr = info.pointee.ai_addr else { return nil }
         

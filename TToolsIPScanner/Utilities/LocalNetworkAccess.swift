@@ -12,7 +12,7 @@ enum LocalNetworkAccess {
         
         let descriptor = NWBrowser.Descriptor.bonjour(type: "_http._tcp", domain: "local.")
         let params = NWParameters()
-        params.includePeerToPeer = true
+        params.includePeerToPeer = false
         let browser = NWBrowser(for: descriptor, using: params)
         Self.browser = browser
         browser.stateUpdateHandler = { _ in }

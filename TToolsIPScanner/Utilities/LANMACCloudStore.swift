@@ -1,8 +1,8 @@
 import Foundation
 
 /// MAC addresses the Mac app already resolved, shared to iOS through iCloud Key-Value Storage.
-/// Signing must include the iCloud Key-Value capability (`com.apple.developer.ubiquity-kvstore-identifier`).
-/// Without that entitlement the calls stay local and do not reach the other device.
+/// The provisioning profile has no `com.apple.developer.ubiquity-kvstore-identifier`, so the
+/// store is never opened. Checking that with SecTaskCreateFromSelf logs a task-port error.
 enum LANMACCloudStore {
     private static let key = "lan-mac-map-v1"
     private static let maxAge: TimeInterval = 7 * 24 * 60 * 60
@@ -14,7 +14,7 @@ enum LANMACCloudStore {
     }
     
     static func publish(prefix: String, hosts: [String: String]) {
-        guard SettingsManager.shared.shareMACOveriCloud else { return }
+        guard storeIsAvailable, SettingsManager.shared.shareMACOveriCloud else { return }
         guard !prefix.isEmpty, !hosts.isEmpty else { return }
         let snapshot = Snapshot(prefix: prefix, updated: Date(), hosts: hosts)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
@@ -24,7 +24,7 @@ enum LANMACCloudStore {
     }
     
     static func hosts(prefix: String) -> [String: String] {
-        guard SettingsManager.shared.shareMACOveriCloud else { return [:] }
+        guard storeIsAvailable, SettingsManager.shared.shareMACOveriCloud else { return [:] }
         guard !prefix.isEmpty else { return [:] }
         let store = NSUbiquitousKeyValueStore.default
         store.synchronize()
@@ -36,4 +36,7 @@ enum LANMACCloudStore {
         }
         return snapshot.hosts
     }
+    
+    /// Off until the signed app actually has the iCloud Key-Value entitlement.
+    private static let storeIsAvailable = false
 }

@@ -50,6 +50,14 @@ struct DeviceRowView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    .lineLimit(1)
+                
+                if !device.ipv6Address.isEmpty, device.ipv6Address != device.ipAddress {
+                    Text(device.ipv6Address)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 
                 Text(manufacturerLine)
                     .font(.caption)

@@ -10,7 +10,8 @@ struct UserGuideView: View {
                     title: "Scan starten",
                     points: [
                         "Netzwerk-IP eingeben oder einen Eintrag unter „Zuletzt gescannt“ wählen. Auf dem iPhone bleibt „Netzwerk“ eingeklappt und zeigt die aktuelle Adresse.",
-                        "Auf dem iPhone stehen Schnell, Normal, Gründlich und „Vollständiger Port-Scan“ im Zahnrad unter „Scan“. Am Mac liegen sie neben dem Scan-Knopf.",
+                        "Auf dem iPhone stehen Schnell, Normal, Gründlich, „Vollständiger Port-Scan“ und „IPv6 scannen“ im Zahnrad unter „Scan“. Am Mac liegen sie neben dem Scan-Knopf.",
+                        "„IPv6 scannen“ ist aus, bis du es einschaltest. Die App sucht dann Nachbarn im lokalen IPv6-Netz. Am Mac erscheint dafür eine IPv6-Spalte neben der IP. Auf dem iPhone steht die Adresse unter der IPv4-Adresse.",
                         "„Scan starten“ tippen. Mit „Stopp“ kannst du abbrechen."
                     ]
                 )
@@ -72,7 +73,7 @@ struct UserGuideView: View {
                     points: [
                         "Spalten (macOS) über „Spalten anzeigen/ausblenden“ steuern.",
                         "OUI-Datenbank liefert Hersteller zu MAC-Adressen.",
-                        "Ohne ARP (iOS) kommt die MAC aus NetBIOS, AirPlay/RAOP, Linux-Workstation, Shelly/ESPHome oder einer IPv6-Adresse. Danach läuft dieselbe OUI-Suche.",
+                        "Ab iOS 27 liest die App dieselbe Nachbartabelle wie am Mac. Auf älteren iOS-Versionen kommt die MAC aus NetBIOS, AirPlay/RAOP, Linux-Workstation, Shelly/ESPHome oder einer IPv6-Adresse. Danach läuft dieselbe OUI-Suche.",
                         "Ohne MAC erkennt die App einen Pi am SSH-Banner (Raspbian) und einen ESP an Tasmota, WLED, Arduino board=esp32, ESPHome-Port 6053 oder der HTTP-Seite. Port 8123 ist Home Assistant, nicht automatisch ein Pi.",
                         "Router & MAC: optionale Fritz!Box (TR-064, Passwort im Schlüsselbund), SNMP-ARP nur am Gateway, und die MAC-Liste der macOS-App über iCloud.",
                         "Ergebnisse und Einstellungen werden lokal gespeichert."

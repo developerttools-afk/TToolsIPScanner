@@ -111,7 +111,8 @@ actor BonjourScanner {
     private func browseService(_ serviceType: String, prefix: String) {
         let descriptor = NWBrowser.Descriptor.bonjour(type: serviceType, domain: "local.")
         let params = NWParameters()
-        params.includePeerToPeer = true
+        // Peer-to-peer browse needs the multicast entitlement and otherwise logs NoAuth.
+        params.includePeerToPeer = false
         
         let browser = NWBrowser(for: descriptor, using: params)
         browsers.append(browser)

@@ -156,6 +156,7 @@ enum NetworkConstants {
         "DCA632": "Raspberry Pi Trading Ltd",
         "E45F01": "Raspberry Pi Trading Ltd",
         "288088": "Raspberry Pi Trading Ltd",
+        "2CCF67": "Raspberry Pi Trading Ltd",
         "E42F37": "ASUSTek COMPUTER INC.",
         "04D4C4": "ASUSTek COMPUTER INC.",
         "2C4D54": "ASUSTek COMPUTER INC.",
@@ -240,6 +241,8 @@ enum NetworkConstants {
     
     static let icmpTimeout: TimeInterval = 2.5
     static let icmpRetryTimeout: TimeInterval = 3.5
+    /// ARP/NDP replies land after the probe. A second table read waits this long.
+    static let neighborSettleDelay: TimeInterval = 0.4
     static let icmpPacingNanoseconds: UInt64 = 5_000_000
     
     /// Legacy alias — normal discovery timeout.
@@ -410,15 +413,16 @@ enum NetworkConstants {
     ]
     
     private static func serviceURL(ip: String, scheme: String, port: Int, defaultPort: Int) -> String {
+        let host = IPv6Address.hostLiteral(ip)
         if scheme == "rdp" {
             if port == defaultPort {
-                return "rdp://full%20address=s:\(ip)"
+                return "rdp://full%20address=s:\(host)"
             }
-            return "rdp://full%20address=s:\(ip):\(port)"
+            return "rdp://full%20address=s:\(host):\(port)"
         }
         if port == defaultPort {
-            return "\(scheme)://\(ip)"
+            return "\(scheme)://\(host)"
         }
-        return "\(scheme)://\(ip):\(port)"
+        return "\(scheme)://\(host):\(port)"
     }
 } 

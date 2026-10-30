@@ -70,6 +70,11 @@ extension NetworkScanner {
     }
     
     nonisolated func fallbackHostLabel(ip: String) -> String {
+        if IPv6Address.isIPv6(ip) {
+            let host = IPv6Address.unscoped(ip)
+            let tail = host.split(separator: ":").last.map(String.init) ?? host
+            return "Gerät \(tail)"
+        }
         if let last = ip.split(separator: ".").last {
             return "Gerät .\(last)"
         }

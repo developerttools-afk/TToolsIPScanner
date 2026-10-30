@@ -263,6 +263,7 @@ final class SettingsManagerTests: XCTestCase {
         // Given: Verschiedene Settings sind gesetzt
         settings.customPorts = [22, 80, 443]
         settings.preferredScanMode = .fullScan
+        settings.scanIPv6 = true
         settings.sortOption = .hostname
         settings.sortAscending = false
         settings.recentNetworks = ["192.168.1.0"]
@@ -275,6 +276,7 @@ final class SettingsManagerTests: XCTestCase {
         // Then: Alle Settings sind zurückgesetzt
         XCTAssertEqual(settings.customPorts, NetworkConstants.defaultPorts)
         XCTAssertEqual(settings.preferredScanMode, .quickScan)
+        XCTAssertFalse(settings.scanIPv6)
         XCTAssertEqual(settings.sortOption, .ip)
         XCTAssertTrue(settings.sortAscending)
         XCTAssertEqual(settings.recentNetworks, [])

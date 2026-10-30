@@ -13,6 +13,16 @@ struct ResultsTableView: View {
     @State private var deviceToEdit: DeviceInfo?
     @State private var tableSelection = Set<DeviceInfo.ID>()
     
+    private static func ipv4ColumnText(_ device: DeviceInfo) -> String {
+        IPv6Address.isIPv6(device.ipAddress) ? "—" : device.ipAddress
+    }
+    
+    private static func ipv6ColumnText(_ device: DeviceInfo) -> String {
+        if !device.ipv6Address.isEmpty { return device.ipv6Address }
+        if IPv6Address.isIPv6(device.ipAddress) { return device.ipAddress }
+        return "—"
+    }
+    
     private func copyToClipboard(_ text: String) {
         #if os(macOS)
         NSPasteboard.general.clearContents()
@@ -63,7 +73,8 @@ struct ResultsTableView: View {
             
             TableColumn("IP", value: \.ipAddress) { device in
                 HStack(spacing: 6) {
-                    Text(device.ipAddress)
+                    Text(Self.ipv4ColumnText(device))
+                        .foregroundStyle(IPv6Address.isIPv6(device.ipAddress) ? .tertiary : .primary)
                     if scanner.isPortScanning(ip: device.ipAddress) {
                         ProgressView()
                             .controlSize(.small)
@@ -72,6 +83,19 @@ struct ResultsTableView: View {
             }
             .width(min: 110, ideal: 130, max: 180)
             .customizationID(TableSettings.ColumnType.ip.customizationID)
+            
+            if scanner.scanIPv6 {
+                TableColumn("IPv6", value: \.ipv6Address) { device in
+                    let text = Self.ipv6ColumnText(device)
+                    Text(text)
+                        .font(.body.monospaced())
+                        .foregroundStyle(text == "—" ? .tertiary : .primary)
+                        .lineLimit(1)
+                        .help(text == "—" ? "Keine IPv6-Adresse" : text)
+                }
+                .width(min: 180, ideal: 260, max: 420)
+                .customizationID("ipv6")
+            }
             
             TableColumn("Gerätename", value: \.hostName) { device in
                 let displayName = scanner.displayName(for: device)

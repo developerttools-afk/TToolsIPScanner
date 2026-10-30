@@ -1,9 +1,11 @@
 import Foundation
 
-#if os(macOS)
+#if os(macOS) || os(iOS)
 import Darwin
 
-/// Kernel ARP / neighbor table via sysctl (sandbox-safe, macOS).
+/// Kernel ARP table via sysctl.
+/// macOS 27 and iOS 27 hide these entries unless the app has
+/// `com.apple.developer.networking.topology-observation`.
 enum ARPTable {
     /// All IPv4 → MAC entries in `prefix.*`.
     static func entries(matchingPrefix prefix: String) -> [String: String] {
@@ -31,6 +33,11 @@ enum ARPTable {
             }
             cursor = cursor.advanced(by: msgLen)
         }
+        
+        // The Mac never appears in its own ARP table.
+        for (ip, mac) in localInterfaceMACs(matchingPrefix: prefix) where result[ip] == nil {
+            result[ip] = mac
+        }
         return result
     }
     
@@ -57,7 +64,7 @@ enum ARPTable {
             
             let saLen = Int(addrPtr.pointee)
             let family = Int32(addrPtr.advanced(by: 1).pointee)
-            let strideLen = max(saLen == 0 ? 4 : saLen, 4)
+            let strideLen = RouteSocketAddress.stride(saLen: saLen)
             guard addrPtr.advanced(by: strideLen) <= end else { return nil }
             
             if bit == RTA_DST, family == AF_INET {
@@ -76,8 +83,8 @@ enum ARPTable {
                         .advanced(by: MemoryLayout<sockaddr_dl>.offset(of: \.sdl_data) ?? 8)
                     let macStart = dataStart.advanced(by: Int(sdl.sdl_nlen))
                     if macStart.advanced(by: 6) <= end {
-                        mac = (0..<6).map { String(format: "%02X", macStart.advanced(by: $0).pointee) }
-                            .joined(separator: ":")
+                        let bytes = (0..<6).map { macStart.advanced(by: $0).pointee }
+                        mac = MACAddress.format(bytes)
                     }
                 }
             }
@@ -88,11 +95,62 @@ enum ARPTable {
         guard let ip, let mac, !mac.isEmpty else { return nil }
         return (ip, mac)
     }
+    
+    /// AF_LINK address of each interface whose IPv4 is inside `prefix`.
+    private static func localInterfaceMACs(matchingPrefix prefix: String) -> [String: String] {
+        var head: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&head) == 0, let first = head else { return [:] }
+        defer { freeifaddrs(first) }
+        
+        var macByName: [String: String] = [:]
+        var addressesByName: [String: [String]] = [:]
+        var cursor: UnsafeMutablePointer<ifaddrs>? = first
+        while let ptr = cursor {
+            cursor = ptr.pointee.ifa_next
+            let name = String(cString: ptr.pointee.ifa_name)
+            guard let addr = ptr.pointee.ifa_addr else { continue }
+            let family = Int32(addr.pointee.sa_family)
+            
+            if family == AF_LINK, let mac = macAddress(fromLink: addr) {
+                macByName[name] = mac
+            }
+            if family == AF_INET {
+                var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                let ip = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin in
+                    var raw = sin.pointee.sin_addr
+                    guard inet_ntop(AF_INET, &raw, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else { return "" }
+                    return String(cString: buffer)
+                }
+                guard ip.hasPrefix(prefix + "."), !ip.hasPrefix("127.") else { continue }
+                addressesByName[name, default: []].append(ip)
+            }
+        }
+        
+        var result: [String: String] = [:]
+        for (name, ips) in addressesByName {
+            guard let mac = macByName[name] else { continue }
+            for ip in ips {
+                result[ip] = mac
+            }
+        }
+        return result
+    }
+    
+    private static func macAddress(fromLink addr: UnsafePointer<sockaddr>) -> String? {
+        let sdl = addr.withMemoryRebound(to: sockaddr_dl.self, capacity: 1) { $0.pointee }
+        guard sdl.sdl_alen == 6 else { return nil }
+        let nameLength = Int(sdl.sdl_nlen)
+        let dataOffset = MemoryLayout<sockaddr_dl>.offset(of: \.sdl_data) ?? 8
+        guard Int(sdl.sdl_len) >= dataOffset + nameLength + 6 else { return nil }
+        let macStart = UnsafeRawPointer(addr).advanced(by: dataOffset + nameLength)
+        let bytes = (0..<6).map { macStart.load(fromByteOffset: $0, as: UInt8.self) }
+        return MACAddress.format(bytes)
+    }
 }
 
 #else
 
-/// iOS does not expose the route-table sysctl API used for ARP lookup.
+/// Platforms without the route-table sysctl.
 enum ARPTable {
     static func entries(matchingPrefix prefix: String) -> [String: String] { [:] }
     static func macAddress(for ip: String) -> String? { nil }

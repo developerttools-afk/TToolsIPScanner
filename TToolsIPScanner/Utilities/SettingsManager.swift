@@ -39,6 +39,7 @@ final class SettingsManager {
         static let sortAscending = "sortAscending"
         static let preferredScanMode = "preferredScanMode"
         static let preferredDiscoveryDepth = "preferredDiscoveryDepth"
+        static let scanIPv6 = "scanIPv6"
         static let fritzTR064Enabled = "fritzTR064Enabled"
         static let fritzHost = "fritzHost"
         static let fritzUsername = "fritzUsername"
@@ -94,6 +95,12 @@ final class SettingsManager {
         set {
             storage.set(newValue.rawValue, forKey: Keys.preferredDiscoveryDepth)
         }
+    }
+    
+    /// Off until the user asks for IPv6 neighbor discovery.
+    var scanIPv6: Bool {
+        get { storage.bool(forKey: Keys.scanIPv6) }
+        set { storage.set(newValue, forKey: Keys.scanIPv6) }
     }
     
     // MARK: - Router MAC sources
@@ -187,7 +194,8 @@ final class SettingsManager {
             Keys.sortOption,
             Keys.sortAscending,
             Keys.preferredScanMode,
-            Keys.preferredDiscoveryDepth
+            Keys.preferredDiscoveryDepth,
+            Keys.scanIPv6
         ]
         
         keys.forEach { storage.removeObject(forKey: $0) }
@@ -199,6 +207,7 @@ final class SettingsManager {
             "customPorts": Array(customPorts),
             "preferredScanMode": preferredScanMode == .fullScan ? "fullScan" : "quickScan",
             "preferredDiscoveryDepth": preferredDiscoveryDepth.rawValue,
+            "scanIPv6": scanIPv6,
             "sortOption": sortOption.rawValue,
             "sortAscending": sortAscending,
             "recentNetworks": recentNetworks,

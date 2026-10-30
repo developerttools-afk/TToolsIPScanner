@@ -29,6 +29,17 @@ struct DeviceDetailView: View {
                         }
                     }
                 
+                if !live.ipv6Address.isEmpty, live.ipv6Address != live.ipAddress {
+                    LabeledContent("IPv6-Adresse", value: live.ipv6Address)
+                        .contextMenu {
+                            Button(action: {
+                                UIPasteboard.general.string = live.ipv6Address
+                            }) {
+                                Label("IPv6 kopieren", systemImage: "doc.on.doc")
+                            }
+                        }
+                }
+                
                 if !live.macAddress.isEmpty {
                     LabeledContent("MAC-Adresse", value: live.macAddress)
                         .contextMenu {

@@ -624,6 +624,11 @@ final class OUIParserTests: XCTestCase {
         }
     }
     
+    func testLookupKnownRaspberryPiOUI() {
+        let vendor = OUIParser.lookup(mac: "2C:CF:67:61:E7:01", database: [:])
+        XCTAssertEqual(vendor, "Raspberry Pi Trading Ltd")
+    }
+    
     func testPerformance_NormalizeOUI() {
         let input = "AA:BB:CC:DD:EE:FF"
         

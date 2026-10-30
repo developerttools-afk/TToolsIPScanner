@@ -12,6 +12,16 @@ extension NetworkScanner {
             
             switch option {
             case .ip:
+                let firstV6 = IPv6Address.isIPv6(first.ipAddress)
+                let secondV6 = IPv6Address.isIPv6(second.ipAddress)
+                if firstV6 != secondV6 {
+                    result = !firstV6
+                    return ascending ? result : !result
+                }
+                if firstV6 {
+                    result = first.ipAddress.localizedStandardCompare(second.ipAddress) == .orderedAscending
+                    return ascending ? result : !result
+                }
                 let firstComponents = first.ipAddress.split(separator: ".").compactMap { Int($0) }
                 let secondComponents = second.ipAddress.split(separator: ".").compactMap { Int($0) }
                 

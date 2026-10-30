@@ -40,8 +40,11 @@ struct DesktopLayout: View {
                         }
                         .frame(width: 180)
                         .disabled(scanner.isScanning)
-                        Toggle("Vollständiger Port-Scan", isOn: fullScanBinding)
-                            .disabled(scanner.isScanning)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Toggle("Vollständiger Port-Scan", isOn: fullScanBinding)
+                            Toggle("IPv6 scannen", isOn: $scanner.scanIPv6)
+                        }
+                        .disabled(scanner.isScanning)
                     }
                 }
                 .padding(16)

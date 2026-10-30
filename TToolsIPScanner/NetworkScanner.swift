@@ -116,6 +116,11 @@ class NetworkScanner: ObservableObject {
             settings.preferredDiscoveryDepth = preferredDiscoveryDepth
         }
     }
+    @Published var scanIPv6: Bool = false {
+        didSet {
+            settings.scanIPv6 = scanIPv6
+        }
+    }
     @Published var sortOption: SortOption = .ip {
         didSet {
             settings.sortOption = sortOption
@@ -138,6 +143,7 @@ class NetworkScanner: ObservableObject {
         sortAscending = settings.sortAscending
         preferredScanMode = settings.preferredScanMode
         preferredDiscoveryDepth = settings.preferredDiscoveryDepth
+        scanIPv6 = settings.scanIPv6
         
         currentNetwork = getCurrentNetwork() ?? "192.168.1.0"
         loadSettings()

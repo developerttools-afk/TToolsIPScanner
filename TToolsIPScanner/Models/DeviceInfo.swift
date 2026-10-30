@@ -3,6 +3,8 @@ import Foundation
 struct DeviceInfo: Identifiable, Hashable, Codable {
     let id: UUID
     let ipAddress: String
+    /// Second address when the same host was also found via IPv6.
+    var ipv6Address: String
     var hostName: String
     var macAddress: String
     var manufacturer: String
@@ -37,6 +39,7 @@ struct DeviceInfo: Identifiable, Hashable, Codable {
     
     init(id: UUID = UUID(),
          ipAddress: String,
+         ipv6Address: String = "",
          hostName: String,
          macAddress: String,
          manufacturer: String,
@@ -55,6 +58,7 @@ struct DeviceInfo: Identifiable, Hashable, Codable {
          category: DeviceCategory = .unknown) {
         self.id = id
         self.ipAddress = ipAddress
+        self.ipv6Address = ipv6Address
         self.hostName = hostName
         self.macAddress = macAddress
         self.manufacturer = manufacturer
@@ -74,7 +78,7 @@ struct DeviceInfo: Identifiable, Hashable, Codable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, ipAddress, hostName, macAddress, manufacturer, openPorts, status, isExpanded
+        case id, ipAddress, ipv6Address, hostName, macAddress, manufacturer, openPorts, status, isExpanded
         case bonjourName, netbiosName, dnsName, mdnsName, detailHint, osHint, advertisedServices
         case firstSeen, lastSeen, category
     }
@@ -83,6 +87,7 @@ struct DeviceInfo: Identifiable, Hashable, Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         ipAddress = try c.decode(String.self, forKey: .ipAddress)
+        ipv6Address = try c.decodeIfPresent(String.self, forKey: .ipv6Address) ?? ""
         hostName = try c.decode(String.self, forKey: .hostName)
         macAddress = try c.decode(String.self, forKey: .macAddress)
         manufacturer = try c.decode(String.self, forKey: .manufacturer)

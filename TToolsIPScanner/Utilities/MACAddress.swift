@@ -23,6 +23,8 @@ enum MACAddress {
         guard raw.count == 6 else { return nil }
         if raw.allSatisfy({ $0 == 0 }) || raw.allSatisfy({ $0 == 0xFF }) { return nil }
         if raw[0] & 0x01 != 0 { return nil }
+        // A shifted parse of an empty link address shows up as 02:00:00:00:00:00.
+        if raw.dropFirst().allSatisfy({ $0 == 0 }) { return nil }
         return raw.map { String(format: "%02X", $0) }.joined(separator: ":")
     }
     

@@ -2,6 +2,21 @@ import Foundation
 
 extension NetworkScanner {
     /// ARP table plus Fritz, gateway SNMP, and iCloud. Existing ARP entries stay.
+    /// Waits for in-flight ARP replies, then reads the kernel table once.
+    func mergedMACMapAfterProbe(prefix: String) async -> [String: String] {
+        try? await Task.sleep(for: .seconds(NetworkConstants.neighborSettleDelay))
+        guard !Task.isCancelled else { return mergedMACMap(prefix: prefix) }
+        return mergedMACMap(prefix: prefix)
+    }
+    
+    /// Fills MACs that were still empty when the host was first listed.
+    func applyARPToListedDevices(_ arpMap: [String: String]) {
+        for index in devices.indices {
+            guard devices[index].macAddress.isEmpty, let mac = arpMap[devices[index].ipAddress] else { continue }
+            applyLearnedMAC(mac, to: &devices[index])
+        }
+    }
+    
     func mergedMACMap(prefix: String) -> [String: String] {
         var map = ARPTable.entries(matchingPrefix: prefix)
         for (ip, mac) in routerMACOverlay where (map[ip] ?? "").isEmpty {

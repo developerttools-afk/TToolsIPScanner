@@ -6,11 +6,12 @@ extension NetworkScanner {
         openPorts: [Int] = [],
         knownHostName: String? = nil,
         knownMac: String = "",
-        arpMap: [String: String] = [:],
+        arpMap: [String: String]? = nil,
         ouiDB: [String: String]
     ) -> (mac: String, manufacturer: String, osHint: String?) {
-        let mac = arpMap[ip]
-            ?? ARPTable.macAddress(for: ip)
+        // A provided map is the one table read for this scan. Do not sysctl again per host.
+        let mac = arpMap?[ip].flatMap { $0.isEmpty ? nil : $0 }
+            ?? (arpMap == nil ? ARPTable.macAddress(for: ip) : nil)
             ?? (knownMac.isEmpty ? nil : knownMac)
             ?? ""
         let portOsHint = osHintFromOpenPorts(openPorts)

@@ -130,7 +130,7 @@ extension NetworkScanner {
             self.currentSubnet = subnet
             
             // Drop results from other LANs — show only the network being scanned.
-            self.devices = self.devices.filter { subnet.contains($0.ipAddress) }
+            self.devices = self.devices.filter { self.keepsAddress($0.ipAddress, subnet: subnet) }
             self.previousDevices = Set(
                 self.devices.filter { $0.status != .missing }.map(\.ipAddress)
             )
@@ -257,7 +257,7 @@ extension NetworkScanner {
                 }
                 
                 await routerTask.value
-                arpMap = self.mergedMACMap(prefix: basePrefix)
+                arpMap = await self.mergedMACMapAfterProbe(prefix: basePrefix)
                 preFound.formUnion(arpMap.keys)
                 
                 for ip in preFound.sorted(by: Self.ipSort) {
@@ -305,6 +305,7 @@ extension NetworkScanner {
         
         await routerTask.value
         arpMap = self.mergedMACMap(prefix: basePrefix)
+        self.applyARPToListedDevices(arpMap)
         applyRouterOverlayToDevices()
         
         await updateScanState(
@@ -386,6 +387,9 @@ extension NetworkScanner {
             }
         }
         
+        arpMap = await self.mergedMACMapAfterProbe(prefix: basePrefix)
+        self.applyARPToListedDevices(arpMap)
+        
         await supplementDiscovery(
             subnet: subnet,
             basePrefix: basePrefix,
@@ -397,6 +401,13 @@ extension NetworkScanner {
             ouiDB: ouiDB,
             arpMap: &arpMap,
             depth: depth
+        )
+        
+        await mergeIPv6Discovery(
+            alreadyListed: &alreadyListed,
+            cachedDetails: cachedDetails,
+            previousDevices: previousDevices,
+            ouiDB: ouiDB
         )
         
         guard !Task.isCancelled else { return }
@@ -786,6 +797,8 @@ extension NetworkScanner {
         
         guard !Task.isCancelled else { return }
         
+        // Port connects create ARP entries the earlier snapshot does not contain yet.
+        let freshARP = await mergedMACMapAfterProbe(prefix: prefix)
         let resolved = resolutions.snapshot()
         let previousDevices = await MainActor.run { self.previousDevices }
         let subnet = await MainActor.run {
@@ -794,7 +807,7 @@ extension NetworkScanner {
         
         var updatedDevices = await MainActor.run {
             self.devices
-                .filter { subnet?.contains($0.ipAddress) ?? true }
+                .filter { self.keepsAddress($0.ipAddress, subnet: subnet) }
                 .map { device -> DeviceInfo in
                 guard let resolution = resolved[device.id] else { return device }
                 var copy = device
@@ -813,6 +826,18 @@ extension NetworkScanner {
                 copy.lastSeen = Date()
                 if copy.firstSeen == nil { copy.firstSeen = copy.lastSeen }
                 return copy
+            }
+        }
+        
+        for index in updatedDevices.indices {
+            let ip = updatedDevices[index].ipAddress
+            guard updatedDevices[index].macAddress.isEmpty, let mac = freshARP[ip], !mac.isEmpty else { continue }
+            updatedDevices[index].macAddress = mac
+            let vendor = lookupManufacturer(mac: mac, ouiDB: ouiDB)
+            if vendor != OUIParser.unknownManufacturer && vendor != OUIParser.privateMACLabel {
+                updatedDevices[index].manufacturer = vendor
+            } else if shouldUpgradeManufacturer(current: updatedDevices[index].manufacturer, proposed: vendor) {
+                updatedDevices[index].manufacturer = vendor
             }
         }
         
@@ -845,7 +870,7 @@ extension NetworkScanner {
             ))
         }
         
-        await finishScan(devices: updatedDevices)
+        await finishScan(devices: IPv6Pairing.pair(updatedDevices))
     }
     
     private struct NameResolution {
@@ -1066,7 +1091,7 @@ extension NetworkScanner {
             let subnet = self.currentSubnet
             // Never keep hosts from other subnets in the result list.
             self.devices = updatedDevices.filter { device in
-                subnet?.contains(device.ipAddress) ?? true
+                self.keepsAddress(device.ipAddress, subnet: subnet)
             }
             self.sortDevices()
             self.scanProgress = "Scan abgeschlossen"
@@ -1241,6 +1266,7 @@ extension NetworkScanner {
             let merged = DeviceInfo(
                 id: existing.id,
                 ipAddress: device.ipAddress,
+                ipv6Address: device.ipv6Address.isEmpty ? existing.ipv6Address : device.ipv6Address,
                 hostName: device.hostName,
                 macAddress: device.macAddress,
                 manufacturer: device.manufacturer,
@@ -1262,6 +1288,66 @@ extension NetworkScanner {
         } else {
             devices.append(device)
         }
+    }
+    
+    /// IPv4 stays in the scanned subnet. IPv6 neighbors stay only while the option is on.
+    private func keepsAddress(_ ip: String, subnet: SubnetConfig?) -> Bool {
+        if let subnet {
+            if subnet.contains(ip) { return true }
+            return scanIPv6 && IPv6Address.isHostAddress(ip)
+        }
+        return true
+    }
+    
+    /// Neighbor discovery for the local link. Matches a MAC onto the IPv4 row when possible.
+    private func mergeIPv6Discovery(
+        alreadyListed: inout Set<String>,
+        cachedDetails: [String: CachedDeviceSnapshot],
+        previousDevices: Set<String>,
+        ouiDB: [String: String]
+    ) async {
+        let enabled = await MainActor.run { self.scanIPv6 }
+        guard enabled, !Task.isCancelled else { return }
+        
+        await updateScanState(progress: "Suche IPv6-Adressen…", percentage: 46)
+        let hosts = await IPv6Discovery.scan()
+        guard !hosts.isEmpty, !Task.isCancelled else { return }
+        
+        for host in hosts {
+            let mac = MACAddress.normalize(host.macAddress)
+            if let mac,
+               let index = devices.firstIndex(where: {
+                   MACAddress.normalize($0.macAddress) == mac && !IPv6Address.isIPv6($0.ipAddress)
+               }) {
+                devices[index].ipv6Address = IPv6Address.preferred(
+                    devices[index].ipv6Address,
+                    host.address
+                )
+                continue
+            }
+            
+            if devices.contains(where: {
+                $0.ipAddress == host.address || $0.ipv6Address == host.address
+            }) {
+                continue
+            }
+            
+            var device = makeDiscoveredDevice(
+                ip: host.address,
+                openPorts: [],
+                previousDevices: previousDevices,
+                cachedDetails: cachedDetails,
+                ouiDB: ouiDB
+            )
+            if device.macAddress.isEmpty {
+                applyLearnedMAC(host.macAddress, to: &device)
+            }
+            device.ipv6Address = host.address
+            upsertDevice(device)
+            alreadyListed.insert(host.address)
+        }
+        devices = IPv6Pairing.pair(devices)
+        scanProgress = "\(devices.count) Gerät(e) gefunden"
     }
     
     private func supplementDiscovery(
@@ -1313,6 +1399,8 @@ extension NetworkScanner {
             hostNumbers: hostNumbers,
             timeout: NetworkConstants.icmpRetryTimeout
         )
+        arpMap = await mergedMACMapAfterProbe(prefix: basePrefix)
+        applyARPToListedDevices(arpMap)
         for ip in latePing.alive.sorted(by: Self.ipSort) {
             guard !Self.isBroadcastOrNetworkAddress(ip) else { continue }
             guard alreadyListed.insert(ip).inserted else { continue }
@@ -1339,7 +1427,7 @@ extension NetworkScanner {
         bonjour: BonjourHostInfo? = nil,
         osHint: String = "",
         ouiDB: [String: String] = [:],
-        arpMap: [String: String] = [:]
+        arpMap: [String: String]? = nil
     ) -> DeviceInfo {
         let cached = cachedDetails[ip]
         let remembered = rememberedHostName(ip: ip, mac: cached?.macAddress ?? "")
@@ -1581,7 +1669,7 @@ extension NetworkScanner {
         if let gatewayIP { alive.insert(gatewayIP) }
         
         await routerTask.value
-        let arpMap = self.mergedMACMap(prefix: prefix)
+        let arpMap = await self.mergedMACMapAfterProbe(prefix: prefix)
         alive.formUnion(arpMap.keys)
         
         let sortedAlive = alive.sorted { a, b in
